@@ -341,7 +341,7 @@ int main(int argc, char** argv)
   std::unique_ptr<cache_sim_t> l2;
   bool log_cache = false;
   bool log_commits = false;
-  const char *log_path = nullptr;
+  const char *log_file = nullptr;
   std::vector<std::function<extension_t*()>> extensions;
   const char* initrd = NULL;
   const char* dtb_file = NULL;
@@ -446,7 +446,7 @@ int main(int argc, char** argv)
   parser.option(0, "log-commits", 0,
                 [&](const char UNUSED *s){log_commits = true;});
   parser.option(0, "log", 1,
-                [&](const char* s){log_path = s;});
+                [&](const char* s){log_file = s;});
   FILE *cmd_file = NULL;
   parser.option(0, "debug-cmd", 1, [&](const char* s){
      if ((cmd_file = fopen(s, "r"))==NULL) {
@@ -466,6 +466,7 @@ int main(int argc, char** argv)
   });
 
   auto argv1 = parser.parse(argv);
+  printf("isa=%s\n", cfg.isa);
   std::vector<std::string> htif_args(argv1, (const char*const*)argv + argc);
 
   if (!*argv1)
@@ -522,13 +523,19 @@ int main(int argc, char** argv)
     cfg.hartids = default_hartids;
   }
 
-  sim_t s(&cfg, halted,
-      mems, plugin_device_factories, htif_args, dm_config, log_path, dtb_enabled, dtb_file,
-      socket,
-      cmd_file);
+  sim_t s(&cfg,
+          halted,
+          mems,
+          plugin_device_factories,
+          htif_args,
+          dm_config,
+          log_file,
+          dtb_enabled,
+          dtb_file,
+          socket,
+          cmd_file);
   std::unique_ptr<remote_bitbang_t> remote_bitbang((remote_bitbang_t *) NULL);
-  std::unique_ptr<jtag_dtm_t> jtag_dtm(
-      new jtag_dtm_t(&s.debug_module, dmi_rti));
+  std::unique_ptr<jtag_dtm_t> jtag_dtm(new jtag_dtm_t(&s.debug_module, dmi_rti));
   if (use_rbb) {
     remote_bitbang.reset(new remote_bitbang_t(rbb_port, &(*jtag_dtm)));
     s.set_remote_bitbang(&(*remote_bitbang));

@@ -25,7 +25,8 @@ int main(int argc, char **argv) {
   debug_module_config_t dm_config;
   std::vector<std::pair<reg_t, abstract_mem_t*>> mems =
       make_mems(cfg.mem_layout);
-  sim_t sim(&cfg, false,
+  sim_t sim(&cfg,
+            false,
             mems,
             plugin_devices,
             htif_args,

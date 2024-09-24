@@ -7,6 +7,7 @@ require_vm;
 reg_t zimm5 = insn.v_zimm5();
 
 VI_LOOP_BASE
+#ifndef FORCE_RISCV_ENABLE
   switch (sew) {
   case e8:
     P.VU.elt<uint8_t>(rd_num, i, true) = zimm5 >= P.VU.vlmax ? 0 : P.VU.elt<uint8_t>(rs2_num, zimm5);
@@ -21,4 +22,20 @@ VI_LOOP_BASE
     P.VU.elt<uint64_t>(rd_num, i, true) = zimm5 >= P.VU.vlmax ? 0 : P.VU.elt<uint64_t>(rs2_num, zimm5);
     break;
   }
+#else
+  switch (sew) {
+  case e8:
+    P.VU.elt_do_callback<uint8_t>(rd_num, i, true) = zimm5 >= P.VU.vlmax ? 0 : P.VU.elt_do_callback<uint8_t>(rs2_num, zimm5);
+    break;
+  case e16:
+    P.VU.elt_do_callback<uint16_t>(rd_num, i, true) = zimm5 >= P.VU.vlmax ? 0 : P.VU.elt_do_callback<uint16_t>(rs2_num, zimm5);
+    break;
+  case e32:
+    P.VU.elt_do_callback<uint32_t>(rd_num, i, true) = zimm5 >= P.VU.vlmax ? 0 : P.VU.elt_do_callback<uint32_t>(rs2_num, zimm5);
+    break;
+  default:
+    P.VU.elt_do_callback<uint64_t>(rd_num, i, true) = zimm5 >= P.VU.vlmax ? 0 : P.VU.elt_do_callback<uint64_t>(rs2_num, zimm5);
+    break;
+  }
+#endif
 VI_LOOP_END;

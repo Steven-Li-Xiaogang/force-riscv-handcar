@@ -46,7 +46,7 @@ bool clint_t::load(reg_t addr, size_t len, uint8_t* bytes)
     }
 
     const auto hart_id = (addr - MSIP_BASE) / sizeof(msip_t);
-    const msip_t res = sim->get_harts().count(hart_id) && (sim->get_harts().at(hart_id)->state.mip->read() & MIP_MSIP);
+    const msip_t res = sim->get_harts().count(hart_id) && (sim->get_harts().at(hart_id)->get_state()->mip->read() & MIP_MSIP);
     read_little_endian_reg(res, addr, len, bytes);
     return true;
   } else if (addr >= MTIMECMP_BASE && addr < MTIME_BASE) {
@@ -80,7 +80,7 @@ bool clint_t::store(reg_t addr, size_t len, const uint8_t* bytes)
 
       const auto hart_id = (addr - MSIP_BASE) / sizeof(msip_t);
       if (sim->get_harts().count(hart_id))
-        sim->get_harts().at(hart_id)->state.mip->backdoor_write_with_mask(MIP_MSIP, msip & 1 ? MIP_MSIP : 0);
+        sim->get_harts().at(hart_id)->get_state()->mip->backdoor_write_with_mask(MIP_MSIP, msip & 1 ? MIP_MSIP : 0);
     }
   } else if (addr >= MTIMECMP_BASE && addr < MTIME_BASE) {
     const auto hart_id = (addr - MTIMECMP_BASE) / sizeof(mtimecmp_t);
@@ -111,12 +111,12 @@ void clint_t::tick(reg_t rtc_ticks)
   }
 
   for (const auto& [hart_id, hart] : sim->get_harts()) {
-    hart->state.time->sync(mtime);
-    hart->state.mip->backdoor_write_with_mask(MIP_MTIP, mtime >= mtimecmp[hart_id] ? MIP_MTIP : 0);
+    hart->get_state()->time->sync(mtime);
+    hart->get_state()->mip->backdoor_write_with_mask(MIP_MTIP, mtime >= mtimecmp[hart_id] ? MIP_MTIP : 0);
   }
 }
 
-clint_t* clint_parse_from_fdt(const void* fdt, const sim_t* sim, reg_t* base,
+clint_t* clint_parse_from_fdt(const void* fdt, const simif_t* sim, reg_t* base,
     const std::vector<std::string>& sargs) {
   if (fdt_parse_clint(fdt, base, "riscv,clint0") == 0 || fdt_parse_clint(fdt, base, "sifive,clint0") == 0)
     return new clint_t(sim,
@@ -126,13 +126,13 @@ clint_t* clint_parse_from_fdt(const void* fdt, const sim_t* sim, reg_t* base,
     return nullptr;
 }
 
-std::string clint_generate_dts(const sim_t* sim) {
+std::string clint_generate_dts(const simif_t* sim) {
   std::stringstream s;
   s << std::hex
     << "    clint@" << CLINT_BASE << " {\n"
        "      compatible = \"riscv,clint0\";\n"
        "      interrupts-extended = <" << std::dec;
-  for (size_t i = 0; i < sim->get_cfg().nprocs(); i++)
+  for (unsigned i = 0; i < sim->get_cfg().nprocs(); i++)
     s << "&CPU" << i << "_intc 3 &CPU" << i << "_intc 7 ";
   reg_t clintbs = CLINT_BASE;
   reg_t clintsz = CLINT_SIZE;

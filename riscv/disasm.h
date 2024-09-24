@@ -11,8 +11,13 @@
 #include <algorithm>
 #include <vector>
 
+#ifndef FORCE_RISCV_ENABLE
 extern const char* xpr_name[NXPR];
 extern const char* fpr_name[NFPR];
+#else
+extern const char* xpr_arch_name[NXPR];
+extern const char* fpr_arch_name[NFPR];
+#endif
 extern const char* vr_name[NVPR];
 extern const char* csr_name(int which);
 

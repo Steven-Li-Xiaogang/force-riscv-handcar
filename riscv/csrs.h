@@ -102,7 +102,17 @@ class pmpaddr_csr_t: public csr_t {
   bool subset_match(reg_t addr, reg_t len) const noexcept;
 
   // Is the specified access allowed given the pmpcfg privileges?
-  bool access_ok(access_type type, reg_t mode) const noexcept;
+  bool access_ok(access_type type, reg_t priv) const noexcept;
+
+  // Assuming this is configured as TOR, return address for top of
+  // range. Also forms bottom-of-range for next-highest pmpaddr
+  // register if that one is TOR.
+  reg_t tor_paddr() const noexcept;
+
+#ifdef FORCE_RISCV_ENABLE
+  // Return the associated pmpcfg relative 8-bits value
+  uint8_t get_cfg() const noexcept;
+#endif
 
   // To check lock bit status from outside like mseccfg
   bool is_locked() const noexcept {
@@ -112,11 +122,6 @@ class pmpaddr_csr_t: public csr_t {
  protected:
   virtual bool unlogged_write(const reg_t val) noexcept override;
  private:
-  // Assuming this is configured as TOR, return address for top of
-  // range. Also forms bottom-of-range for next-highest pmpaddr
-  // register if that one is TOR.
-  reg_t tor_paddr() const noexcept;
-
   // Assuming this is configured as TOR, return address for bottom of
   // range. This is tor_paddr() from the previous pmpaddr register.
   reg_t tor_base_paddr() const noexcept;

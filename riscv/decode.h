@@ -15,6 +15,11 @@
 #include <cinttypes>
 #include <type_traits>
 
+#ifdef FORCE_RISCV_ENABLE
+#include <iostream>
+#include <typeinfo>
+#endif
+
 typedef int64_t sreg_t;
 typedef uint64_t reg_t;
 typedef float128_t freg_t;
@@ -202,19 +207,80 @@ private:
   uint64_t imm_sign() { return xs(31, 1); }
 };
 
+#ifdef FORCE_RISCV_ENABLE
+extern const char* xpr_arch_name[];
+extern const char* fpr_arch_name[];
+extern const char* vr_name[];
+
+extern "C" {
+  // update_generator_register function: for the given cpuid, this callback function is called by the simulator to notify the user that a register has been accessed.
+  //                                     this is key feature of cosim when step an instruction
+  //
+  //  inputs:
+  //      uint32_t cpuid -- refers to the processor ID
+  //      const char* pRegisterName -- the name of the register (programmer's name)
+  //      uint64_t value -- the data stored in the register after update
+  //      uint64_t mask -- 1's indicate relevant bits
+  //      const char* pAccessType -- indicates if the access was a read or write.
+  //
+  void update_generator_register(uint32_t cpuid, const char* pRegisterName, uint64_t value, uint64_t mask, const char* pAccessType);
+}
+#endif
+
 template <class T, size_t N, bool zero_reg>
 class regfile_t
 {
 public:
-  void write(size_t i, T value)
+#ifdef FORCE_RISCV_ENABLE
+  regfile_t(size_t id): pid(id) {};
+  void set_pid(size_t id) {pid = id;};
+  void do_callback(size_t index, T value, const char access_type[]) const
   {
-    if (!zero_reg || i != 0)
-      data[i] = value;
+    uint64_t mask = 0xffffffffffffffffull;
+    uint64_t buffer = 0;
+
+    memcpy(&buffer, &value, sizeof(uint64_t) < sizeof(T) ? sizeof(uint64_t) : sizeof(T));
+
+    if(typeid(T) == typeid(float128_t))
+        update_generator_register(pid, fpr_arch_name[index], buffer, mask, access_type);
+    else if(typeid(T) == typeid(float64_t))
+        update_generator_register(pid, fpr_arch_name[index], buffer, mask, access_type);
+    else if(typeid(T) == typeid(float32_t))
+        update_generator_register(pid, fpr_arch_name[index], buffer, mask, access_type);
+    else if(typeid(T) == typeid(float16_t))
+        update_generator_register(pid, fpr_arch_name[index], buffer, mask, access_type);
+    else
+        update_generator_register(pid, xpr_arch_name[index], buffer, mask, access_type);
   }
-  const T& operator [] (size_t i) const
+#endif
+  void write(size_t index, T value)
   {
-    return data[i];
+    if (!zero_reg || index != 0) // not x0
+      data[index] = value;
+#ifdef FORCE_RISCV_ENABLE
+    do_callback(index, value, "write");
+#endif
   }
+#ifdef FORCE_RISCV_ENABLE
+  void write_no_callback(size_t index, T value)
+  {
+    if (!zero_reg || index != 0) // not x0
+      data[index] = value;
+  }
+#endif
+  const T& operator [] (size_t index) const
+  {
+#ifdef FORCE_RISCV_ENABLE
+    do_callback(index, data[index], "read");
+#endif
+    return data[index];
+  }
+#ifdef FORCE_RISCV_ENABLE
+  const T& read_no_callback(size_t index) const
+  {
+    return data[index];
+  }
+#endif
   regfile_t()
   {
     reset();
@@ -224,6 +290,9 @@ public:
     memset(data, 0, sizeof(data));
   }
 private:
+#ifdef FORCE_RISCV_ENABLE
+  size_t pid; // processor id that contains regfile_t
+#endif
   T data[N];
 };
 
@@ -231,7 +300,8 @@ private:
   (((reg) & (std::remove_cv<decltype(reg)>::type)(mask)) / ((mask) & ~((mask) << 1)))
 
 #define set_field(reg, mask, val) \
-  (((reg) & ~(std::remove_cv<decltype(reg)>::type)(mask)) | (((std::remove_cv<decltype(reg)>::type)(val) * ((mask) & ~((mask) << 1))) & (std::remove_cv<decltype(reg)>::type)(mask)))
+  (((reg) & ~(std::remove_cv<decltype(reg)>::type)(mask)) | \
+    (((std::remove_cv<decltype(reg)>::type)(val) * ((mask) & ~((mask) << 1))) & (std::remove_cv<decltype(reg)>::type)(mask)))
 
 #define DEBUG_START             0x0
 #define DEBUG_END               (0x1000 - 1)

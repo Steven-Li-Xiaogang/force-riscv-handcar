@@ -26,6 +26,7 @@ if (i != vl - 1) {
   break;
   }
 } else {
+#ifndef FORCE_RISCV_ENABLE
   switch (sew) {
   case e8:
     P.VU.elt<uint8_t>(rd_num, vl - 1, true) = RS1;
@@ -40,5 +41,21 @@ if (i != vl - 1) {
     P.VU.elt<uint64_t>(rd_num, vl - 1, true) = RS1;
     break;
   }
+#else
+  switch (sew) {
+  case e8:
+    P.VU.elt_do_callback<uint8_t>(rd_num, vl - 1, true) = RS1;
+    break;
+  case e16:
+    P.VU.elt_do_callback<uint16_t>(rd_num, vl - 1, true) = RS1;
+    break;
+  case e32:
+    P.VU.elt_do_callback<uint32_t>(rd_num, vl - 1, true) = RS1;
+    break;
+  default:
+    P.VU.elt_do_callback<uint64_t>(rd_num, vl - 1, true) = RS1;
+    break;
+  }
+#endif
 }
 VI_LOOP_END

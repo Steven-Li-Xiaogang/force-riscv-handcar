@@ -13,14 +13,24 @@ if (vd != vs2 && start < size) {
   reg_t i = start / P.VU.vlenb;
   reg_t off = start % P.VU.vlenb;
   if (off) {
+#ifndef FORCE_RISCV_ENABLE
     memcpy(&P.VU.elt<uint8_t>(vd + i, off, true),
            &P.VU.elt<uint8_t>(vs2 + i, off), P.VU.vlenb - off);
+#else
+    memcpy(&P.VU.elt_do_callback<uint8_t>(vd + i, off, true),
+           &P.VU.elt_do_callback<uint8_t>(vs2 + i, off), P.VU.vlenb - off);
+#endif
     i++;
   }
 
   for (; i < len; ++i) {
+#ifndef FORCE_RISCV_ENABLE
     memcpy(&P.VU.elt<uint8_t>(vd + i, 0, true),
            &P.VU.elt<uint8_t>(vs2 + i, 0), P.VU.vlenb);
+#else
+    memcpy(&P.VU.elt_do_callback<uint8_t>(vd + i, 0, true),
+           &P.VU.elt_do_callback<uint8_t>(vs2 + i, 0), P.VU.vlenb);
+#endif
   }
 }
 

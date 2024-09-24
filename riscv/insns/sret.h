@@ -9,6 +9,11 @@ if (STATE.v) {
 reg_t next_pc = p->get_state()->sepc->read();
 set_pc_and_serialize(next_pc);
 reg_t s = STATE.sstatus->read();
+#ifdef FORCE_RISCV_ENABLE
+printf("<<<<<<<<<<<update_exception_event sret>>>>>>>>>>>>>>>\n");
+SimException exit_s(0x4e, 0, "exit_sret", next_pc);
+update_exception_event(&exit_s);
+#endif
 reg_t prev_prv = get_field(s, MSTATUS_SPP);
 s = set_field(s, MSTATUS_SIE, get_field(s, MSTATUS_SPIE));
 s = set_field(s, MSTATUS_SPIE, 1);
@@ -27,5 +32,9 @@ if (ZICFILP_xLPE(prev_virt, prev_prv)) {
   STATE.elp = static_cast<elp_t>(get_field(s, SSTATUS_SPELP));
   s = set_field(s, SSTATUS_SPELP, elp_t::NO_LP_EXPECTED);
 }
+#ifndef FORCE_RISCV_ENABLE
 STATE.sstatus->write(s);
+#else
+p->put_csr(CSR_SSTATUS, s);
+#endif
 p->set_privilege(prev_prv, prev_virt);

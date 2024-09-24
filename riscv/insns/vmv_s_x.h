@@ -8,6 +8,7 @@ if (vl > 0 && P.VU.vstart->read() < vl) {
   reg_t rd_num = insn.rd();
   reg_t sew = P.VU.vsew;
 
+#ifndef FORCE_RISCV_ENABLE
   switch (sew) {
   case e8:
     P.VU.elt<uint8_t>(rd_num, 0, true) = RS1;
@@ -22,6 +23,22 @@ if (vl > 0 && P.VU.vstart->read() < vl) {
     P.VU.elt<uint64_t>(rd_num, 0, true) = RS1;
     break;
   }
+#else
+  switch (sew) {
+  case e8:
+    P.VU.elt_do_callback<uint8_t>(rd_num, 0, true) = RS1;
+    break;
+  case e16:
+    P.VU.elt_do_callback<uint16_t>(rd_num, 0, true) = RS1;
+    break;
+  case e32:
+    P.VU.elt_do_callback<uint32_t>(rd_num, 0, true) = RS1;
+    break;
+  default:
+    P.VU.elt_do_callback<uint64_t>(rd_num, 0, true) = RS1;
+    break;
+  }
+#endif
 
   vl = 0;
 }

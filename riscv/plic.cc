@@ -121,7 +121,7 @@ void plic_t::context_update(const plic_context_t *c)
   uint32_t best_id = context_best_pending(c);
   reg_t mask = c->mmode ? MIP_MEIP : MIP_SEIP;
 
-  c->proc->state.mip->backdoor_write_with_mask(mask, best_id ? mask : 0);
+  c->proc->get_state()->mip->backdoor_write_with_mask(mask, best_id ? mask : 0);
 }
 
 uint32_t plic_t::context_claim(plic_context_t *c)
@@ -392,7 +392,7 @@ bool plic_t::store(reg_t addr, size_t len, const uint8_t* bytes)
   return ret;
 }
 
-std::string plic_generate_dts(const sim_t* sim)
+std::string plic_generate_dts(const simif_t* sim)
 {
   std::stringstream s;
   s << std::hex
@@ -400,7 +400,7 @@ std::string plic_generate_dts(const sim_t* sim)
        "      compatible = \"riscv,plic0\";\n"
        "      #address-cells = <2>;\n"
        "      interrupts-extended = <" << std::dec;
-  for (size_t i = 0; i < sim->get_cfg().nprocs(); i++)
+  for (unsigned i = 0; i < sim->get_cfg().nprocs(); i++)
     s << "&CPU" << i << "_intc 11 &CPU" << i << "_intc 9 ";
   reg_t plicbs = PLIC_BASE;
   reg_t plicsz = PLIC_SIZE;
@@ -415,7 +415,7 @@ std::string plic_generate_dts(const sim_t* sim)
   return s.str();
 }
 
-plic_t* plic_parse_from_fdt(const void* fdt, const sim_t* sim, reg_t* base, const std::vector<std::string>& sargs)
+plic_t* plic_parse_from_fdt(const void* fdt, const simif_t* sim, reg_t* base, const std::vector<std::string>& sargs)
 {
   uint32_t plic_ndev;
   if (fdt_parse_plic(fdt, base, &plic_ndev, "riscv,plic0") == 0 ||

@@ -22,43 +22,71 @@ static const arg_t* opt = nullptr;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return std::to_string((int)insn.i_imm()) + '(' + xpr_name[insn.rs1()] + ')';
+#else
+    return std::to_string((int)insn.i_imm()) + '(' + xpr_arch_name[insn.rs1()] + ')';
+#endif
   }
 } load_address;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return std::to_string((int)insn.rvc_lbimm()) + '(' + xpr_name[insn.rvc_rs1s()] + ')';
+#else
+    return std::to_string((int)insn.rvc_lbimm()) + '(' + xpr_arch_name[insn.rvc_rs1s()] + ')';
+#endif
   }
 } rvb_b_address;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return std::to_string((int)insn.rvc_lhimm()) + '(' + xpr_name[insn.rvc_rs1s()] + ')';
+#else
+    return std::to_string((int)insn.rvc_lhimm()) + '(' + xpr_arch_name[insn.rvc_rs1s()] + ')';
+#endif
   }
 } rvb_h_address;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return std::to_string((int)insn.s_imm()) + '(' + xpr_name[insn.rs1()] + ')';
+#else
+    return std::to_string((int)insn.s_imm()) + '(' + xpr_arch_name[insn.rs1()] + ')';
+#endif
   }
 } store_address;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return std::string("(") + xpr_name[insn.rs1()] + ')';
+#else
+    return std::string("(") + xpr_arch_name[insn.rs1()] + ')';
+#endif
   }
 } base_only_address;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return xpr_name[insn.rd()];
+#else
+    return xpr_arch_name[insn.rd()];
+#endif
   }
 } xrd;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return xpr_name[insn.rs1()];
+#else
+    return xpr_arch_name[insn.rs1()];
+#endif
   }
 } xrs1;
 
@@ -110,37 +138,61 @@ struct : public arg_t {
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return xpr_name[insn.rs2()];
+#else
+    return xpr_arch_name[insn.rs2()];
+#endif
   }
 } xrs2;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return xpr_name[insn.rs3()];
+#else
+    return xpr_arch_name[insn.rs3()];
+#endif
   }
 } xrs3;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return fpr_name[insn.rd()];
+#else
+    return fpr_arch_name[insn.rd()];
+#endif
   }
 } frd;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return fpr_name[insn.rs1()];
+#else
+    return fpr_arch_name[insn.rs1()];
+#endif
   }
 } frs1;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return fpr_name[insn.rs2()];
+#else
+    return fpr_arch_name[insn.rs2()];
+#endif
   }
 } frs2;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return fpr_name[insn.rs3()];
+#else
+    return fpr_arch_name[insn.rs3()];
+#endif
   }
 } frs3;
 
@@ -214,55 +266,91 @@ struct : public arg_t {
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return xpr_name[insn.rvc_rs1()];
+#else
+    return xpr_arch_name[insn.rvc_rs1()];
+#endif
   }
 } rvc_rs1;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return xpr_name[insn.rvc_rs2()];
+#else
+    return xpr_arch_name[insn.rvc_rs2()];
+#endif
   }
 } rvc_rs2;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return fpr_name[insn.rvc_rs2()];
+#else
+    return fpr_arch_name[insn.rvc_rs2()];
+#endif
   }
 } rvc_fp_rs2;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return xpr_name[insn.rvc_rs1s()];
+#else
+    return xpr_arch_name[insn.rvc_rs1s()];
+#endif
   }
 } rvc_rs1s;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return xpr_name[insn.rvc_rs2s()];
+#else
+    return xpr_arch_name[insn.rvc_rs2s()];
+#endif
   }
 } rvc_rs2s;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return xpr_name[RVC_R1S];
+#else
+    return xpr_arch_name[RVC_R1S];
+#endif
   }
 } rvc_r1s;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return xpr_name[RVC_R2S];
+#else
+    return xpr_arch_name[RVC_R2S];
+#endif
   }
 } rvc_r2s;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return fpr_name[insn.rvc_rs2s()];
+#else
+    return fpr_arch_name[insn.rvc_rs2s()];
+#endif
   }
 } rvc_fp_rs2s;
 
 struct : public arg_t {
   std::string to_string(insn_t UNUSED insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return xpr_name[X_SP];
+#else
+    return xpr_arch_name[X_SP];
+#endif
   }
 } rvc_sp;
 
@@ -306,37 +394,61 @@ struct : public arg_t {
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return std::to_string((int)insn.rvc_lwsp_imm()) + '(' + xpr_name[X_SP] + ')';
+#else
+    return std::to_string((int)insn.rvc_lwsp_imm()) + '(' + xpr_arch_name[X_SP] + ')';
+#endif
   }
 } rvc_lwsp_address;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return std::to_string((int)insn.rvc_ldsp_imm()) + '(' + xpr_name[X_SP] + ')';
+#else
+    return std::to_string((int)insn.rvc_ldsp_imm()) + '(' + xpr_arch_name[X_SP] + ')';
+#endif
   }
 } rvc_ldsp_address;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return std::to_string((int)insn.rvc_swsp_imm()) + '(' + xpr_name[X_SP] + ')';
+#else
+    return std::to_string((int)insn.rvc_swsp_imm()) + '(' + xpr_arch_name[X_SP] + ')';
+#endif
   }
 } rvc_swsp_address;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return std::to_string((int)insn.rvc_sdsp_imm()) + '(' + xpr_name[X_SP] + ')';
+#else
+    return std::to_string((int)insn.rvc_sdsp_imm()) + '(' + xpr_arch_name[X_SP] + ')';
+#endif
   }
 } rvc_sdsp_address;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return std::to_string((int)insn.rvc_lw_imm()) + '(' + xpr_name[insn.rvc_rs1s()] + ')';
+#else
+    return std::to_string((int)insn.rvc_lw_imm()) + '(' + xpr_arch_name[insn.rvc_rs1s()] + ')';
+#endif
   }
 } rvc_lw_address;
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return std::to_string((int)insn.rvc_ld_imm()) + '(' + xpr_name[insn.rvc_rs1s()] + ')';
+#else
+    return std::to_string((int)insn.rvc_ld_imm()) + '(' + xpr_arch_name[insn.rvc_rs1s()] + ')';
+#endif
   }
 } rvc_ld_address;
 
@@ -360,7 +472,11 @@ struct : public arg_t {
 
 struct : public arg_t {
   std::string to_string(insn_t insn) const {
+#ifndef FORCE_RISCV_ENABLE
     return std::string("(") + xpr_name[insn.rs1()] + ')';
+#else
+    return std::string("(") + xpr_arch_name[insn.rs1()] + ')';
+#endif
   }
 } v_address;
 
@@ -845,28 +961,28 @@ void disassembler_t::add_instructions(const isa_parser_t* isa)
     DEFINE_XAMO(amocas_q)
   }
 
-  if (isa->extension_enabled(EXT_ZABHA)) {
-    DEFINE_XAMO(amoadd_b)
-    DEFINE_XAMO(amoswap_b)
-    DEFINE_XAMO(amoand_b)
-    DEFINE_XAMO(amoor_b)
-    DEFINE_XAMO(amoxor_b)
-    DEFINE_XAMO(amomin_b)
-    DEFINE_XAMO(amomax_b)
-    DEFINE_XAMO(amominu_b)
-    DEFINE_XAMO(amomaxu_b)
-    DEFINE_XAMO(amocas_b)
-    DEFINE_XAMO(amoadd_h)
-    DEFINE_XAMO(amoswap_h)
-    DEFINE_XAMO(amoand_h)
-    DEFINE_XAMO(amoor_h)
-    DEFINE_XAMO(amoxor_h)
-    DEFINE_XAMO(amomin_h)
-    DEFINE_XAMO(amomax_h)
-    DEFINE_XAMO(amominu_h)
-    DEFINE_XAMO(amomaxu_h)
-    DEFINE_XAMO(amocas_h)
-  }
+  // if (isa->extension_enabled(EXT_ZABHA)) {
+  //   DEFINE_XAMO(amoadd_b)
+  //   DEFINE_XAMO(amoswap_b)
+  //   DEFINE_XAMO(amoand_b)
+  //   DEFINE_XAMO(amoor_b)
+  //   DEFINE_XAMO(amoxor_b)
+  //   DEFINE_XAMO(amomin_b)
+  //   DEFINE_XAMO(amomax_b)
+  //   DEFINE_XAMO(amominu_b)
+  //   DEFINE_XAMO(amomaxu_b)
+  //   DEFINE_XAMO(amocas_b)
+  //   DEFINE_XAMO(amoadd_h)
+  //   DEFINE_XAMO(amoswap_h)
+  //   DEFINE_XAMO(amoand_h)
+  //   DEFINE_XAMO(amoor_h)
+  //   DEFINE_XAMO(amoxor_h)
+  //   DEFINE_XAMO(amomin_h)
+  //   DEFINE_XAMO(amomax_h)
+  //   DEFINE_XAMO(amominu_h)
+  //   DEFINE_XAMO(amomaxu_h)
+  //   DEFINE_XAMO(amocas_h)
+  // }
 
   if (isa->extension_enabled(EXT_ZICFILP)) {
     // lpad encodes as `auipc x0, label`, so it needs to be added before auipc

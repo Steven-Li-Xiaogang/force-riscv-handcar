@@ -1,0 +1,2412 @@
+commit a101bfebe07c92447b8239737c1a18702e63df98
+Author: YenHaoChen <howard25336284@gmail.com>
+Date:   Tue Apr 9 09:13:24 2024 +0800
+
+    Ignore writes to henvcfg fields (PBMTE, STCE, and ADUE) when read-only 0
+    
+    The henvcfg fields, i.e., PBMTE, STCE, and ADUE, are read-only 0 when
+    the corresponding bits in menvcfg are 0. Besides the reading behavior,
+    the spec also specified the writing behavior, i.e., ignoring writes.
+    This commit ignores writes to the henvcfg fields when read-only 0.
+    
+    Reference: https://github.com/riscv/riscv-isa-manual/issues/1312
+
+commit cbeded947ec4acaa76a091dc839557d52f96a4ce
+Author: Ming-Yi Lai <ming-yi.lai@mediatek.com>
+Date:   Fri Mar 22 10:06:44 2024 +0800
+
+    Allow software check exception to be delegated from M mode regardless of Zicfilp being enabled
+
+commit 677e030594aa51ea8d6304d24b7da2ecd7006fe8
+Author: Ming-Yi Lai <ming-yi.lai@mediatek.com>
+Date:   Wed Jan 10 14:22:58 2024 +0800
+
+    Zicfilp: Support delegating software check exception handling
+
+commit 7b5eba94285f1d12e8268899d3276bd0ff21d9c4
+Author: Ming-Yi Lai <ming-yi.lai@mediatek.com>
+Date:   Fri Jan 5 11:37:35 2024 +0800
+
+    Zicfilp: Preserve expected landing pad state on traps
+
+commit 194dfb1d5b84e12b9400729fac27560eceaf6b0d
+Author: Ming-Yi Lai <ming-yi.lai@mediatek.com>
+Date:   Thu Jan 4 16:49:22 2024 +0800
+
+    Zicfilp: Add CSR fields
+
+commit 3a53c80ade3336b1d46c9db3a6c6be8311c32cc5
+Merge: d4726e1c 928743b1
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Wed Feb 7 17:57:30 2024 -0800
+
+    Merge pull request #1591 from YenHaoChen/pr-sstc-stce
+    
+    Teach Sstc to respect xenvcfg.STCE
+
+commit 20a735414863ffaa5525bc5bac04f6bc256e6f07
+Author: YenHaoChen <howard25336284@gmail.com>
+Date:   Fri Feb 2 10:17:30 2024 +0800
+
+    Fix hvip.VSEIP and hvip.VSTIP, so they don't observe platform-specific interrupts or CSR hgeip bits
+    
+    The H extension defines that bits VSEIP, VSTIP, and VSSIP of hvip are
+    writable. (The other bits of hvip are read-only 0.) Only hip.VSSIP
+    (mip.VSSIP) is an alias of hvip.VSSIP. The hip.VSEIP is the logical-OR
+    of hvip.VSEIP, selected bit of hgeip by hstatus.VGEIN, and
+    platform-specific external interrupt signals to VS-level, e.g., from
+    AIA. The hip.VSTIP is the logical-OR of hvip.VSTIP and platform-specific
+    timer interrupt signals to VS-level, e.g., from Sstc. Thus, the read
+    values of hvip.VSEIP and hvip.VSTIP differ from the ones of hip.VSEIP
+    and hip.VSTIP (mip.VSEIP and mip.VSTIP). In other words, the hvip isn't
+    an alias (proxy) of mip.
+    
+    The current aliasing (proxy) implementation does not provide the desired
+    behavior for hvip.VSEIP and hvip.VSTIP. An ISA-level behavior difference
+    is that any platform-specific external and timer interrupt signals
+    directed to VS-level should not be observable through the hvip. For
+    instance, the hvip should not observe the virtual timer interrupt signal
+    from the vstimecmp CSR (Sstc extension), which isn't true in the current
+    implementation. Additionally, the hvip should not observe the virtual
+    external interrupt signal from the IMSIC device (AIA extension).
+    Another ISA-level behavior difference is that the hgeip and
+    hstatus.VGEIN also should not affect hvip.VSEIP, which isn't true in the
+    current implementation.
+    
+    This commit fixes the issue by giving the hvip a specialized class,
+    hvip_csr_t. The hvip_csr_t aliases the hvip.VSSIP to the mip.VSSIP but
+    decouples the hvip.VSEIP and hvip.VSTIP from mip.VSEIP and mip.VSTIP.
+    Additionally, the commit updates the read value of mip to be the
+    logical-OR of hvip.VSEIP, hvip.VSTIP, and other sources.
+
+commit 928743b105becf2bedf704b97d220825690c0c52
+Author: YenHaoChen <howard25336284@gmail.com>
+Date:   Fri Feb 2 14:14:28 2024 +0800
+
+    Teach Sstc to respect xenvcfg.STCE
+    
+    When menvcfg.STCE=0, mip.STIP reverts to its defined behavior as if
+    unsupporting Sstc extension. When henvcfg.STCE=0, mip.VSTIP reverts
+    to its defined behavior as if unsupporting Sstc extension. [https://github.com/riscv/riscv-time-compare/issues/5]
+    
+    The previous Sstc implementation does not respect the xenvcfg.STCE.
+    In other words, the Sstc may assert mip.STIP (mip.VSTIP) when
+    menvcfg.STCE=0 (henvcfg.STCE=0), which is a misbehaving.
+
+commit 573761793eed4a7a4de2f43e09da94f74f1f0430
+Author: Ved Shanbhogue <ved@rivosinc.com>
+Date:   Wed Jan 10 17:34:48 2024 -0600
+
+    fix merge issue
+
+commit bd53a1b474401b8311d9afa0c9f1e113f7e32061
+Author: Ved Shanbhogue <ved@rivosinc.com>
+Date:   Wed Jan 10 17:33:44 2024 -0600
+
+    fix merge issue
+
+commit 4a59b90c0f29fb223775388a1cf4d505e724b833
+Merge: 0bf0a60a de247598
+Author: Ved Shanbhogue <91900059+ved-rivos@users.noreply.github.com>
+Date:   Wed Jan 10 16:08:54 2024 -0600
+
+    Merge branch 'master' into zaamo_zalrsc
+    
+    Signed-off-by: Ved Shanbhogue <91900059+ved-rivos@users.noreply.github.com>
+
+commit 0bf0a60ad870ba3d59f87c03b41b6d06ca5fa30c
+Author: Ved Shanbhogue <ved@rivosinc.com>
+Date:   Wed Jan 10 15:37:00 2024 -0600
+
+    Add Zaamo and Zalrsc extensions
+
+commit 075af7fd61f97e307ab550c0e3688d2230797605
+Author: Ved Shanbhogue <ved@rivosinc.com>
+Date:   Wed Jan 10 15:23:46 2024 -0600
+
+    B=Zba+Zbb+Zbs
+
+commit 09585296310dfe10c78432215b3d00c4be1decd7
+Author: YenHaoChen <howard25336284@gmail.com>
+Date:   Thu Jan 4 14:44:35 2024 +0800
+
+    typo: HPM counters consider previous privilege mode if changed
+
+commit da2f415bb62bec3e93b33b379d787b4262aade9f
+Author: Ved Shanbhogue <ved@rivosinc.com>
+Date:   Sat Dec 30 14:20:00 2023 -0600
+
+    Add srmcfg CSR
+
+commit a62b69a8893326912cf696d3135d0d59907a560c
+Author: YenHaoChen <howard25336284@gmail.com>
+Date:   Wed Nov 29 13:50:14 2023 +0800
+
+    fix: dcsr.ebreak(v)[su] hardwired to 0 if unsupport corresponding privilege modes
+
+commit 6e6885feed1c1fd31978535aa4ab845006e91efd
+Author: YenHaoChen <howard25336284@gmail.com>
+Date:   Thu Nov 23 17:15:40 2023 +0800
+
+    stimecmp: perform menvcfg.STCE permission check when accessing vstimecmp in HS-mode
+    
+    The spec requires menvcfg.STCE=1 on accessing stimecmp or vstimecmp in a
+    mode other than M-mode. The previous implementation does not check the
+    permission on accessing vstimecmp in HS-mode. This commit fixes the
+    issue by moveing the permission check from virtualized_stimecmp_csr_t to
+    stimecmp_csr_t, which implements the vstimecmp.
+
+commit c927773dd1584d870dd60a1cf86c0a8f0d138dd4
+Author: Atul Khare <atulkhare@rivosinc.com>
+Date:   Wed Jun 14 16:49:40 2023 -0700
+
+    Add Smcntrpmf functionality
+    
+    If Smcntrpmf is enabled, mcycle / minstret increment only if counting
+    for the privilege level isn't inhibited in mcyclecfg / minstretcfg.
+
+commit 60c08b1ea5e3d96a97c235db87d472a7cfb2611b
+Merge: 4d017193 bc5842f9
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Tue Jul 25 15:19:53 2023 -0700
+
+    Merge pull request #1383 from rivosinc/sscrind_feature
+    
+    Add Smcsrind / Sscsrind support
+
+commit e7e188011182a60c94bf2b35c94f02795d906da4
+Author: YenHaoChen <howard25336284@gmail.com>
+Date:   Mon Jul 17 12:27:59 2023 +0800
+
+    legalize henvcfg.CBIE
+    
+    The value 2 of henvcfg.CBIE is reserved. This commit legalizes it to 0.
+    
+    Reference: https://github.com/riscv/riscv-CMOs/issues/65
+
+commit 7f22022e1ad4019afb18e48ceb76ec9e6f483b50
+Author: YenHaoChen <howard25336284@gmail.com>
+Date:   Mon Jul 17 12:14:14 2023 +0800
+
+    legalize senvcfg.CBIE
+    
+    The value 2 of senvcfg.CBIE is reserved. This commit legalizes it to 0.
+    
+    Reference: https://github.com/riscv/riscv-CMOs/issues/65
+
+commit f6e7338b26f1508bdcc823ff1920427bf72e95ae
+Author: YenHaoChen <howard25336284@gmail.com>
+Date:   Mon Jul 17 12:04:56 2023 +0800
+
+    legalize menvcfg.CBIE
+    
+    The value 2 of menvcfg.CBIE is reserved. This commit legalizes it to 0
+    by adding a specialized class envcfg_csr_t.
+    
+    Reference: https://github.com/riscv/riscv-CMOs/issues/65
+
+commit bc5842f94517c5fa760409cf8c956bbc7c37ead5
+Author: Atul Khare <atulkhare@rivosinc.com>
+Date:   Tue Jul 11 13:31:12 2023 -0700
+
+    Add Smcsrind/Sscsrind support
+    
+    This adds the following CSRs:
+    
+    miselect (0x350), mireg (0x351), mireg2/3 (0x352, 0x353),
+    mireg4-6 (0x355 - 0x357), siselect (0x150), sireg (0x151),
+    sireg2/3 (0x152, 0x153), sireg4-6 (0x155 - 0x157), vsiselect (0x250),
+    vsireg (0x251), mireg2/3 (0x252, 0x253), vsireg4-6 (0x255 - 0x257).
+    
+    Presently, attempts to read / write from ireg? registers will fail, and
+    future extensions will provide proxy CSR mappings for the respective
+    ?ireg CSRs.
+
+commit bb101c7a2c1bd751a34d65ea441faede408fa3d7
+Author: Tim Newsome <tim@sifive.com>
+Date:   Thu Jun 1 13:19:37 2023 -0700
+
+    dscr.ebreakh is now dcsr.ebreakv[su]
+    
+    This change was made ages ago in the spec.
+    
+    I did not actually test that the new privilege checks in ebreak and
+    c.ebreak are correct, but all the existing debug tests still pass.
+
+commit d99efb545cca366a159dc1dedcbbd08fa2b3b8cf
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Wed May 24 13:51:34 2023 -0700
+
+    Implement dcsr.v and make DRET use it
+    
+    Resolves #1365
+
+commit e910707051c4e10889f58229443bf9d41652ed7b
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Thu May 25 14:33:52 2023 -0700
+
+    Use more descriptive variable name in dcsr_csr_t::read; make it reg_t
+
+commit 4dfdf00f13333ae9f59f2c98a1e56bfc33572701
+Author: YenHaoChen <howard25336284@gmail.com>
+Date:   Mon May 22 15:02:56 2023 +0800
+
+    Let mstatus.MPP initially be M-mode if unsupporting U-mode
+    
+    This commit lets the mstatus.MPP be a valid value if unsupporting
+    U-mode. Without this commit, the mret may result in a corrupted state
+    without properly setting the MPP to M-mode (if unsupporting U-mode).
+
+commit a5fdc4efbf9f79a890fe5d1c144880548b011d90
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Thu Mar 16 17:14:24 2023 -0700
+
+    Implement Smrnmi extension
+    
+    We don't model any sources of RNMI, so this is mostly vestigial.
+
+commit 32168de8ea2251a26ac2634c2c1add4492cb43cb
+Author: Weiwei Li <liweiwei@iscas.ac.cn>
+Date:   Wed Feb 15 10:41:51 2023 +0800
+
+    Disable Zvfh when Zfhmin is disabled
+
+commit 72250c8628fb05a02f77f6500ded658575b0a561
+Author: Weiwei Li <liweiwei@iscas.ac.cn>
+Date:   Wed Feb 15 10:39:01 2023 +0800
+
+    Disable Zvfh{min} when misa.V is cleared
+
+commit d90f290f55e6281af0f48c3bc1e637b011fbe53d
+Author: Weiwei Li <liweiwei@iscas.ac.cn>
+Date:   Wed Feb 15 10:37:15 2023 +0800
+
+    Disable Zfh{min} when misa.F is cleared
+
+commit 9b51c16f30769e63b85b3d0f4765c7e1c124f365
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Sun Feb 5 15:26:57 2023 -0800
+
+    Support dynamically disabling misa.C once again
+    
+    Now, when misa.C is writable, clearing misa.C also disables any
+    Zc* extension.
+
+commit 13f075e7af30425227cb1323980397d513de76a2
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Sun Feb 5 15:35:11 2023 -0800
+
+    Make JVT CSR definition account for dynamically disabling Zcmt
+    
+    No functional change yet.
+
+commit 96be756b53c46e297fe8a2af916060013860f1bb
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Thu Dec 29 14:11:18 2022 -0800
+
+    Make misa.C read-only
+    
+    This resolves the issue discussed in #1201.
+    
+    Prior to 0adf9307, clearing misa.C would disable compressed instructions
+    and increase IALIGN to 32.  Afterwards, clearing misa.C had essentially
+    no effect because Zca and friends would stay enabled.  While AFAICS this
+    isn't technically incorrect, it certainly doesn't follow the principle
+    of least surprise.
+    
+    Instead, remove the feature to toggle misa.C.  The effect is that misa.C
+    is 1 iff C is included in the ISA string, and IALIGN is independent of
+    misa.C: specifically, IALIGN is 16 iff Zca is present.
+    (And of course C implies Zca.)
+    
+    Removing the alignment check on misa writes is not a separate commit
+    because these two changes should be made atomically.  Not checking
+    the alignment on misa writes goes hand-in-hand with misa.C being
+    read-only.
+
+commit 0f85dacdb5a0912ff4f782bb07bb733bd2e0d7ba
+Author: Jerry Zhao <jerryz123@berkeley.edu>
+Date:   Mon Dec 19 21:04:41 2022 -0800
+
+    Check commitlog-enable dynamicallly for csr_t::log_special_write
+    
+    This incurs a negligible performance impact
+
+commit e1919d3b0666a149fbfa0514ba6d6ce40abdfdab
+Author: Jerry Zhao <jerryz123@berkeley.edu>
+Date:   Thu Dec 15 15:29:43 2022 -0800
+
+    Add config.h includes directly to source files instead of relying on header chaining
+    
+    This step is to ensure that removing config.h out of headers will not cause regressions.
+
+commit 1d6381386c607dcc82f29b59a01bbb1b387973b4
+Author: Jerry Zhao <jerryz123@berkeley.edu>
+Date:   Mon Dec 12 12:58:35 2022 -0800
+
+    Split decode.h into public decode.h and private decode_macros.h
+    
+    * decode.h contains constants/typedefs/classes. This should not depend on config.h
+    * decode_macros.h contains internally used macros, and depends on config.h
+
+commit a0fdc2b225e83d9021b860f4644e090544b15046
+Author: YenHaoChen <howard25336284@gmail.com>
+Date:   Mon Dec 5 10:37:28 2022 +0800
+
+    triggers: implement tdata3 CSR fields
+
+commit 8ce096c6aac1102f68c6098494294e836b5df56a
+Author: YenHaoChen <howard25336284@gmail.com>
+Date:   Fri Dec 9 15:33:55 2022 +0800
+
+    refactor: add tdata3_csr_t; preparation for CSR textra
+
+commit b035edab78ba9248ee1c2334c0ff2cadc7cfb8cb
+Author: YenHaoChen <howard25336284@gmail.com>
+Date:   Fri Dec 9 15:32:49 2022 +0800
+
+    refactor: remove proc parameter from functions of module_t
+
+commit 200ee39b7ab67cabb3484b8d20b1e167ed33628b
+Author: YenHaoChen <howard25336284@gmail.com>
+Date:   Wed Nov 23 08:55:49 2022 +0800
+
+    clear mevent.VUINH and mevent.VSINH when misa.H is cleared
+
+commit af99d52f256edcf1c70941210a225eed6a60eb35
+Author: YenHaoChen <howard25336284@gmail.com>
+Date:   Mon Dec 5 08:58:07 2022 +0800
+
+    add macro N_HPMCOUNTERS (29)
+
+commit 1a7e9af4603a0fb024c9e28ff9389711352155c7
+Author: YenHaoChen <howard25336284@gmail.com>
+Date:   Mon Dec 5 21:27:26 2022 +0800
+
+    use extension_enabled('H') instead of extension_enabled_const('H') since misa.H is RW
+    
+    The masked_csr_t does not meet the behavior of mevent
+    because the misa.H is not read-only (hardwired).
+    
+    h/t @kwalker27
+    reported at https://github.com/riscv-software-src/riscv-isa-sim/pull/1154
+
+commit e878eee23597426a72659569a8829197606df928
+Author: YenHaoChen <howard25336284@gmail.com>
+Date:   Wed Nov 23 08:38:21 2022 +0800
+
+    refactor: add custom CSR class, mevent_csr_t
+    
+    The masked_csr_t does not meet the behavior of mevent
+    because the misa.H is not read-only (hardwired).
+    (fix in the next commit)
+    
+    h/t @kwalker27
+    reported at https://github.com/riscv-software-src/riscv-isa-sim/pull/1154
+
+commit a15778cc9bb208652daea4b1c3e158c2a08fe80e
+Author: Tim Newsome <tim@sifive.com>
+Date:   Mon Nov 21 10:36:25 2022 -0800
+
+    Add tinfo register.
+    
+    Not very interesting while spike only supports one trigger type,
+    but #1128 is about to change that. Without tinfo, it can become quite
+    slow for a debugger to discover which types are supported.
+
+commit 087626c280571b13e5ee51a3a7603c8bbd96916a
+Author: Weiwei Li <liweiwei@iscas.ac.cn>
+Date:   Tue Jun 28 10:38:40 2022 +0800
+
+    add support for zcmt
+    
+    add suport for jvt: Table entries follow the current data endianness
+
+commit ce69fb5db97ecf240336b7826dd9dddeb32e5dca
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Thu Sep 22 17:34:33 2022 -0700
+
+    Suppress most unused variable warnings
+
+commit 8f511653940cb2b9edd9a18ec30a51422b34a573
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Thu Sep 22 14:57:42 2022 -0700
+
+    Fix remaining ignored-qualifiers warning
+
+commit 326fa00f587c43f76d94acbeaed83ffba2e07d3b
+Merge: ccc97918 32e199cc
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Tue Sep 20 14:35:28 2022 -0700
+
+    Merge pull request #1036 from plctlab/plct-sscofpmf-dev
+    
+    add support for sscofpmf extension v0.5.2
+
+commit ac117cc35aa2bc5296f7a7bfd817a539e269919f
+Author: Greg Chadwick <gac@lowrisc.org>
+Date:   Thu Aug 11 21:09:57 2022 +0100
+
+    Unify PMPCFGx behaviour with PMPADDRx where PMP is disabled (#1068)
+    
+    Previously any access to the PMPADDRx CSRs when no PMP regions were
+    configured would result in an illegal instruction trap, whilst
+    PMPCFGx registers would act as WARL, ignoring writes and reading as 0.
+    
+    This unifies the behaviour so both PMPADDRx and PMPCFGx CSRs produce an
+    illegal instruction trap when accessed when no PMP regions are
+    configured.
+
+commit 7383118078a98112ca4036919e6654d8171d2274
+Author: liweiwei90 <34847211+liweiwei90@users.noreply.github.com>
+Date:   Wed Aug 10 05:50:53 2022 +0800
+
+    Fix exception type for accessing (v)stimecmp (#1061)
+    
+    Illegal instruciton trap should be raised when accessing if related
+    bit of mcounteren.TM or menvcfg.STCE is zero in VS/VU mode
+
+commit ba10686fd18f3fbb036ca04b906deb57e7d1fe54
+Author: Weiwei Li <liweiwei@iscas.ac.cn>
+Date:   Mon Jul 4 21:31:09 2022 +0800
+
+    add support for sscofpmf extension v0.5.2
+    
+    since spike doesn't truly support counting of hardware performance events,
+    only csr related read/write functions is supported currently
+
+commit c5fc01694d6db6bc275fa97126e3573c5a6b7511
+Merge: dd9bf0d3 caee7f3f
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Mon Aug 8 20:03:50 2022 -0700
+
+    Merge pull request #831 from plctlab/plct-upstream-zfinx
+    
+    add support for zfinx v1.0
+
+commit dd9bf0d3de2dccea483723f6e5f9cf8cfc2e05e1
+Merge: 5672c4a4 a7de776d
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Mon Aug 8 20:00:43 2022 -0700
+
+    Merge pull request #1059 from plctlab/plct-stateen-fix
+    
+    add stateen related check to frm/fflags
+
+commit caee7f3fa508b0bf84eb3f8d60d6c9e43b0ccf61
+Author: Weiwei Li <liweiwei@iscas.ac.cn>
+Date:   Thu Aug 4 10:18:19 2022 +0800
+
+    Add stateen related check for float point instructions
+
+commit 7812b01154c6a2f19e0d4bc9f00e5d5fcb9aec22
+Author: liweiwei <liweiwei@iscas.ac.cn>
+Date:   Thu Oct 14 09:44:54 2021 +0800
+
+    Add flags for Zfinx/Zdinx/Zhinx{min}
+    
+    Hardwire mstatus_fs to zero when enable ZFinx
+
+commit 5672c4a41ad7a9af011d385962c175a5a6012fd9
+Author: i2h2 <110197402+i2h2@users.noreply.github.com>
+Date:   Wed Aug 3 16:01:57 2022 -0600
+
+    Add Sstc support. (#1057)
+
+commit a7de776de66a1c1caea8d896e6ff51503b0a46bf
+Author: Weiwei Li <liweiwei@iscas.ac.cn>
+Date:   Wed Aug 3 22:10:17 2022 +0800
+
+    Fix exception type for accessing senvcfg/henvcfg/hstateen
+    
+    Illegal instruciton trap should be raised when accessing senvcfg/
+    henvcfg/hstateen if related bit of mstateen is zero in VU mode
+
+commit eb2cce0c99075f89e77b0c1db92108f9c49ccab0
+Author: Weiwei Li <liweiwei@iscas.ac.cn>
+Date:   Wed Aug 3 10:32:51 2022 +0800
+
+    add stateen related check to frm/fflags and then apply to fcsr implicitly
+
+commit 8d016bffdbc8d7cbeb253cc4f2ee9e5d4bf0a626
+Author: Brendan Sweeney <brs@eecs.berkeley.edu>
+Date:   Tue Jul 26 14:36:01 2022 -0500
+
+    Add additional bits to medeleg (#1050)
+    
+    Pursuant to https://github.com/riscv-software-src/riscv-isa-sim/issues/668 and https://github.com/riscv-software-src/riscv-isa-sim/issues/194, allowing for additional exceptions to be delegated from M-mode.
+    It is implementation-defined whether these bits are defined or are read-only-zero.
+    QEMU implements the added bits (Fetch/Load/StoreAMO access, Load/StoreAMO misalignment, and illegal instruction). (https://github.com/qemu/qemu/blob/f6cce6bcb2ef959cdd4da0e368f7c72045f21d6d/target/riscv/csr.c#L813)
+    ECALL_FROM_M is not implemented here because it would have no effect, although QEMU does implement it.
+    This allows Spike to emulate QEMU and other systems which allow for the delegation of such exceptions.
+    
+    Signed-off-by: Brendan Sweeney <mehnadnerd@gmail.com>
+
+commit 3ea7494620face7e65c7b53af52898e69951a1ac
+Merge: b0d9782e eff4011f
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Thu Jul 21 09:51:24 2022 -0700
+
+    Merge pull request #1040 from plctlab/plct-priv-dev
+    
+    Update for counter related CSR
+
+commit eff4011f24390017e4582cb8556ebc6e5ce41d61
+Author: Weiwei Li <liweiwei@iscas.ac.cn>
+Date:   Fri Jul 8 10:00:00 2022 +0800
+
+    add base verify_permission in counter_proxy_csr_t::verify_permissions
+    
+    Normally, csrs will reuse the checks in verify_permissions of its base csr type
+    This modification will not cause any functional change, just reuse the check
+    in csr_t class to check whether it writes to read-only csr instead of checking
+    writes to counter_proxy_csr_t by itself.
+
+commit 3ff1b5f1c6c6e13777be1c677abc2340f3dabd1a
+Author: Weiwei Li <liweiwei@iscas.ac.cn>
+Date:   Fri Jul 8 20:30:02 2022 +0800
+
+    add support for time/timeh/htimedelta/htimedeltah csrs
+
+commit 28ee0c4d6a1ed221f1a05ba48f54023ac7d455cc
+Author: Weiwei Li <liweiwei@iscas.ac.cn>
+Date:   Fri Jul 8 18:34:13 2022 +0800
+
+    modify minstret/mcycle/minstreth/mcycleh to reuse rv32_low/high_csr_t
+
+commit 84b9d03c088af3a92505c82ff3160d984387248c
+Merge: 3742db88 c0b3fdcb
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Mon Jul 18 15:10:53 2022 -0700
+
+    Merge pull request #1041 from plctlab/plct-new-csrs
+    
+    add support for m/henvcfgh and mconfigptr CSRs
+
+commit c0b3fdcbaba99576393c57607985a0009bb2ebb1
+Author: Weiwei Li <liweiwei@iscas.ac.cn>
+Date:   Tue Jul 12 23:21:34 2022 +0800
+
+    modify the check for "state->prv >= PRV_M" to "state->prv == PRV_M"
+    
+    prv can never be larger than PRV_M
+
+commit 89a79b673208a61f7ff16be628955109a742c1ac
+Author: Weiwei Li <liweiwei@iscas.ac.cn>
+Date:   Sun Jul 17 10:00:23 2022 +0800
+
+    Fix the initial value and write mask for mstatus
+    
+    - MPRV is read-only 0 if U-mode is not supported
+    - If U-mode is not supported, UBE is read-only 0
+    - If S-mode is not supported, SBE is read-only 0
+
+commit f82e54124345f348abaa80ec82d67528a9a8f774
+Author: Weiwei Li <liweiwei@iscas.ac.cn>
+Date:   Sun Jul 17 09:46:09 2022 +0800
+
+    remove unnecessary ifdef for RISCV_ENABLE_DUAL_ENDIAN
+    
+    the default target endian is always little endian:
+    - mmu::is_target_big_endian() return false
+    - sim_t::get_target_endianness() return memif_endianness_little
+    when RISCV_ENABLE_DUAL_ENDIAN  macro is undefined
+
+commit 61a2c0ee6306562e084b25e4734d6ae725c475b4
+Author: Weiwei Li <liweiwei@iscas.ac.cn>
+Date:   Sun Jul 17 09:13:06 2022 +0800
+
+    extract the progress of computing the inital value of mstatus into
+    separate function compute_mstatus_initial_value()
+
+commit 80a078f0d5dd0a9f457d23aaa36a021cd68038dd
+Merge: d02b285c e050da4c
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Fri Jul 15 04:21:51 2022 -0700
+
+    Merge pull request #1043 from YenHaoChen/pr-conditionalize-epmp
+    
+    Conditionalize Smepmp extension (ePMP) support
+
+commit 3688fd8302d1b7b8eea1dd8f6206ceab1bedfb2c
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Jul 13 10:45:41 2022 -0700
+
+    Properly log mstatush side effect updates
+    
+    These have never been logged properly.
+
+commit b21a28bce174f2d1ac3e8a424bc9b9b1f01251a6
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Jul 13 10:21:43 2022 -0700
+
+    Add assertion to ensure proper logging of mstatus changes on RV32
+
+commit 85ab2228ddb802c33a967349d69b2d948846bd01
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Jul 13 09:33:36 2022 -0700
+
+    Add proxy for accessing the low 32 bits of a 64-bit CSR
+    
+    Use this for mstatus on RV32 so that `csrw mstatus` does not modify
+    the bits in `mstatush`. Fixes #1044.
+
+commit 8f36f1a5f8a47282743706e7777a277b9f17ba6f
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Jul 13 09:14:05 2022 -0700
+
+    Remove no-longer-needed mask from rv32_high_csr_t
+
+commit 00c38fdb95dff4e18ed75361da03436075a03b3a
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Jul 13 09:01:15 2022 -0700
+
+    Remove unnecessary mask from rv32_high_csr_t constructor
+
+commit 5eada616d48e1e0f1f9f5add53dfca76dc29de68
+Author: liweiwei90 <34847211+liweiwei90@users.noreply.github.com>
+Date:   Thu Jul 14 09:39:30 2022 +0800
+
+    add check for H extension requires S mode (#1042)
+
+commit e050da4c27635a22d6dbdab920371012b2ea8b4f
+Author: YenHaoChen <howard25336284@gmail.com>
+Date:   Wed Jul 13 09:23:18 2022 +0800
+
+    Add verify_permissions() for mseccfg_csr_t
+    
+    The mseccfg only exists when enabling the Smepmp extension. If not
+    enabling the Smepmp extension, CSR instructions to the mseccfg raise
+    illegal instruction faults, and the PMP behaviors as hardwiring mseccfg
+    0 (the reset value of mseccfg).
+
+commit 0ad0d9733b41e666172ff55ee946253c6dbdd080
+Merge: d920cdee 8fbeaab9
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Mon Jul 11 15:16:32 2022 -0700
+
+    Merge pull request #1035 from plctlab/plct-smstateen-dev
+    
+    Add support for smstateen 1.0.0
+
+commit d920cdeeb47056e6976198384cd31f6e2e7b97da
+Author: YenHaoChen <39526191+YenHaoChen@users.noreply.github.com>
+Date:   Tue Jul 12 06:13:10 2022 +0800
+
+    Allow writes to pmp(i-1)cfg on locked pmp(i)cfg (#1039)
+    
+    The privileged spec allows writes to pmp(i-1)cfg with locked pmp(i)cfg
+    (According to a recent discussion: https://github.com/riscv/riscv-isa-manual/issues/866)
+
+commit 10fefa1542756a7f7caf45670a64d965a995153a
+Author: Weiwei Li <liweiwei@iscas.ac.cn>
+Date:   Wed Jul 6 10:52:15 2022 +0800
+
+    add smstateen check for fcsr, senvcfg, henvcfg
+
+commit 11dacaedc4b55ac1d79f1152a549ab9bfb170d2d
+Author: Weiwei Li <liweiwei@iscas.ac.cn>
+Date:   Wed Jul 6 10:51:36 2022 +0800
+
+    add standalone class for fcsr and senvcfg csr
+
+commit 2bf74857f0f7f3a63e029d7c7ecaf3d4523a846e
+Author: Weiwei Li <liweiwei@iscas.ac.cn>
+Date:   Wed Jul 6 10:45:04 2022 +0800
+
+    add support for csrs of smstateen extensions
+
+commit 9b66f89b8102f032f721fe332819325508aa3b95
+Author: Weiwei Li <liweiwei@iscas.ac.cn>
+Date:   Wed Jul 6 10:43:57 2022 +0800
+
+    modify mstatush_csr_t to general rv32_high_csr_t
+
+commit 2aedbdd01911a42565cd6d154f82fa00a66410cd
+Author: Weiwei Li <liweiwei@iscas.ac.cn>
+Date:   Fri Jul 1 16:09:02 2022 +0800
+
+    remove multi blank lines
+
+commit 68b3eb9bf1c04c19a66631f717163dd9ba2c923c
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Thu May 26 14:21:07 2022 -0700
+
+    Fix RV32 hgatp write mask computation (#1014)
+    
+    clang with `-Wall` happened to catch this.
+
+commit fc35f34fd0f5307354cc25ae8018cda62f834e25
+Author: Ryan Buchner <ryan.buchner@arilinc.com>
+Date:   Tue May 10 15:22:11 2022 -0700
+
+    Change henvcfg csr to a henvcfg_csr_t
+    
+    To do so implemented henvcfg_csr_t.
+    
+    henvcfg.PBMTE will be read only 0 if menvcfg.PBMTE = 0.
+
+commit b0fdd88d26ef4b20023e1d2a79cfcb1e9df047de
+Author: soberl@nvidia.com <soberl@nvidia.com>
+Date:   Tue May 3 19:56:01 2022 -0700
+
+    Update pmpaddr_csr_t::access_ok() for ePMP on matching regions
+
+commit af500657c3ecde57fb88ed027dbdaa5da72a1c4b
+Author: soberl@nvidia.com <soberl@nvidia.com>
+Date:   Tue May 3 19:49:21 2022 -0700
+
+    Update csr access rules for ePMP on pmpaddr and pmpcfg
+
+commit 84a98f6f718cd482710238042eac3d2b855c6768
+Author: soberl@nvidia.com <soberl@nvidia.com>
+Date:   Tue May 3 19:38:07 2022 -0700
+
+    Implement the new csr mseccfg for ePMP as dummy
+
+commit 7dc9283f31680a32110ad7f7296bde195c86399e
+Merge: 69b5e650 dc7ee323
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Apr 11 13:19:33 2022 -0500
+
+    Merge pull request #944 from riscv-software-src/triggers
+    
+    Refactor trigger code
+
+commit 4df0c94473e045f288990318c2b512ad7e3bef20
+Author: Anup Patel <anup@brainfault.org>
+Date:   Mon Apr 11 10:06:28 2022 +0530
+
+    Fix hgatp CSR write
+    
+    The write mask is incorrectly computed by hgatp_csr_t::unlogged_write()
+    which leads to hgatp.PPN bits not getting updated upon hgatp CSR write.
+    
+    This patch fixes hgatp CSR writes and gets KVM RISC-V working again
+    on Spike.
+    
+    Fixes: 70b7e9ca2d04 ("mmu: support asid/vmid (#928)")
+    Signed-off-by: Anup Patel <anup@brainfault.org>
+
+commit 70b7e9ca2d04effda5fe964c968fbbabf72e54d9
+Author: Chih-Min Chao <48193236+chihminchao@users.noreply.github.com>
+Date:   Thu Apr 7 14:03:50 2022 +0800
+
+    mmu: support asid/vmid (#928)
+    
+    The change makes [v]satp.asid and hgatp.vmid writtable and supports
+    maximum length for rv32 and rv64. Software could write and read the
+    satp.asid to get the valid length or check if the core supports
+    asid/vmid or not.  However, there is no official way to describe this hardware
+    capability (device tree or something else).  Two implementation flags
+    are also added for future use and enabled by default.
+    
+    Signed-off-by: Chih-Min Chao <chihmin.chao@sifive.com>
+
+commit 4b1597498d9f2eed20019b45e839f6971bb38d37
+Merge: 5b977379 7b8a2ae9
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Tue Apr 5 14:47:35 2022 -0700
+
+    Merge pull request #960 from marcfedorow/upstream
+    
+    Change misa CSR in associate with priv spec.
+
+commit 825b396c4dba96f9941fdc4a38301e890c8c9d12
+Author: Tim Newsome <tim@sifive.com>
+Date:   Thu Mar 24 11:30:07 2022 -0700
+
+    Move num_triggers knowledge into triggers.h
+
+commit 972943662c6e608e5d321c9128cdb9aaf903a4ae
+Author: Tim Newsome <tim@sifive.com>
+Date:   Thu Mar 24 11:22:33 2022 -0700
+
+    Don't access triggers vector directly from csrs.cc.
+
+commit 894f77677d2d6bb84cf57ddec68e87857df357a1
+Author: Tim Newsome <tim@sifive.com>
+Date:   Wed Mar 16 10:24:34 2022 -0700
+
+    Move tdata2 logic into trigger.
+    
+    There isn't much logic, but different trigger types will have different
+    logic.
+
+commit 6e31b0a1350b2818da9490304032ef0067803b0f
+Author: Mark Fedorov <mark.fedorov@cloudbear.ru>
+Date:   Mon Apr 4 12:44:20 2022 +0300
+
+    Make misa.V writable
+
+commit 0138fab215ed879afd4344a29cd2203249f4b175
+Author: Mark Fedorov <mark.fedorov@cloudbear.ru>
+Date:   Tue Apr 5 12:28:45 2022 +0300
+
+    Since ca08503 this code only runs at reset, so no longer depends on misa.V being constant
+
+commit 2e4aa037789363fc56627d9a40c62186318778b5
+Author: Mark Fedorov <mark.fedorov@cloudbear.ru>
+Date:   Thu Mar 31 13:34:58 2022 +0300
+
+    Make misa.Q writable
+
+commit 1b7f851e7618fc4cc98b5cbde51426410dfd97aa
+Author: Mark Fedorov <mark.fedorov@cloudbear.ru>
+Date:   Thu Mar 31 13:34:14 2022 +0300
+
+    Refactor misa masking
+
+commit 02b3b36901daa3e030af40c71ac2418fc80fd90e
+Author: Tim Newsome <tim@sifive.com>
+Date:   Wed Mar 16 10:16:37 2022 -0700
+
+    Move tdata1 write logic into triggers.
+
+commit 9bd1f818aee132ca6434e0ecaf168821024b1adc
+Author: Tim Newsome <tim@sifive.com>
+Date:   Wed Mar 16 10:07:46 2022 -0700
+
+    Move tdata1 read logic into triggers.cc.
+
+commit fd315a0ddebdfbee71edbfb60680cdbf43bc4c38
+Author: Tim Newsome <tim@sifive.com>
+Date:   Tue Mar 15 10:58:04 2022 -0700
+
+    Move tdata2 into mcontrol_t
+
+commit 16ed520e8d35a0eaa56b708aa540400312acdc09
+Author: Tim Newsome <tim@sifive.com>
+Date:   Tue Mar 15 10:41:21 2022 -0700
+
+    Replace state.mcontrol with TM.triggers.
+    
+    Created a new triggers::module_t to hold the structure.
+    
+    Also make sure mcontrol_t instances are properly initialized.
+
+commit c0445333d880c13bb7a1b8af2bf74ed1d957a0af
+Author: Tim Newsome <tim@sifive.com>
+Date:   Tue Mar 15 10:13:21 2022 -0700
+
+    mcontrol_match_t -> mcontrol_t::match_t
+    
+    Made mcontrol_t a class as well.
+
+commit 9e9f56166d4205aabfcef841951c292272e87801
+Author: Tim Newsome <tim@sifive.com>
+Date:   Tue Mar 15 10:04:46 2022 -0700
+
+    Move mcontrol_t and mcontrol_match_t into triggers
+
+commit 08442c1aad70be858f177e277b02a340a22346ba
+Author: Tim Newsome <tim@sifive.com>
+Date:   Tue Mar 15 08:52:32 2022 -0700
+
+    mcontrol_action_t -> triggers::action_t
+    
+    These actions are not specific to the mcontrol trigger.
+
+commit 1e159e462720f043b0c2ff9c0cd2541fed88f1a9
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Mon Mar 28 14:56:36 2022 -0700
+
+    Implement Sv57 and Sv57x4 translation modes
+
+commit fd1b1f0aeede6f8cc7f5dae35e48dda36452969b
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Mon Mar 28 14:38:52 2022 -0700
+
+    Don't allow hgatp.MODE to be set to Sv48x4 unless implemented
+    
+    Sv48x4 is available only if Sv48 is implemented.
+    
+    Make the same modification for Sv39x4, too.  Technically, we do not
+    need this check, since RV64 implementations of the hypervisor extension
+    require Sv39.  But the code looks more symmetrical this way, and it will
+    sidestep a pitfall if we ever have sPMP-only hypervisors.
+
+commit 24b962dec17e78d74e4040f572b429e57eb7ee8b
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Wed Mar 16 18:10:55 2022 -0700
+
+    Raise illegal (not virtual) instruction exception on counter writes (#951)
+    
+    Looks like a regression introduced in 53a3002e8cdbf94016d36c6071945bd663e826d5
+    
+    Writes to read-only CSRs are not HS-qualified so should not raise
+    virtual instruction exceptions.
+
+commit a522178805264c9bfb8ebd68db33fabfa9ddd3ae
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Wed Mar 16 13:11:05 2022 -0700
+
+    Refer to concrete members in sstatus_csr_t::dirty()
+    
+    Since d266b96018d5edb6f8f072e14c66a6595ed68491 needs to refer to the
+    concrete members rather than the abstract ones, also refer to the
+    concrete ones later for readability.
+
+commit d266b96018d5edb6f8f072e14c66a6595ed68491
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Tue Mar 15 21:15:45 2022 -0700
+
+    Speed up sstatus_csr_t::dirty(); remove redundant log entries
+    
+    dirty() almost never changes any state.  Reading the old dirtiness state
+    and comparing is much faster than writing, so gate the write.
+    
+    This commit does introduce a benign functional change: it eliminates
+    logging messages for e.g. FS changing from Dirty to Dirty.
+
+commit f17413e22d35422e4430f7f6e190817b66cbd5e2
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Tue Mar 15 20:58:14 2022 -0700
+
+    Rewrite sstatus_csr_t::enabled() for higher performance
+    
+    Eliminate calls to base_status_csr_t::enabled() so that the various
+    read() calls can be inlined.  Doing so also removes a redundant check of
+    sstatus_write_mask.
+    
+    Schedule the most common exit path first.
+
+commit cb4bea96ddb175fb6b338db7c3e8ef17cb228025
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Tue Mar 15 20:56:20 2022 -0700
+
+    Give concrete types to fields of sstatus_proxy_csr_t
+    
+    Doing so allows calls to their members to be inlined.
+
+commit 0207326eb79d93844ad68b45fde81386d96a43f7
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Tue Mar 15 20:46:23 2022 -0700
+
+    Give concrete types to fields of sstatus_csr_t
+    
+    Doing so allows calls to their members to be inlined.
+
+commit 165306f7e51776136bf4a9aa811e8f98e29ad94e
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Tue Mar 15 20:54:07 2022 -0700
+
+    Allow sstatus_proxy_csr_t::read() to be inlined
+
+commit c7745501d92df74171abb0718711581379693e5e
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Tue Mar 15 20:36:52 2022 -0700
+
+    Allow mstatus_csr_t::read() to be inlined
+
+commit e218b2f4d767edb63d107b7cd5cf3dff070d2e8b
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Tue Mar 15 20:38:02 2022 -0700
+
+    Allow vsstatus_csr_t::read() to be inlined
+
+commit 2528ad66c11bc44309135c9ab0896e2907847105
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Tue Mar 15 17:47:01 2022 -0700
+
+    Fix perf regression from CSR refactoring (#949)
+    
+    Since many instructions are only conditionally legal, their
+    implementations need to query misa (or isa).  Since reading
+    misa is therefore on the critical path, make sure it's inlined.
+    
+    Making misa_csr_t a final class sidesteps the need for a vtable
+    lookup when calling read().
+
+commit cb632586bdb1b57ea4e5a5543e21bbb257e47f3b
+Author: Rupert Swarbrick <rswarbrick@gmail.com>
+Date:   Fri Feb 18 15:45:21 2022 +0000
+
+    Construct an isa_parser_t and pass it to processor_t constructor
+    
+    This is a minor change, turning processor_t from a child class of
+    isa_parser_t into a class that contains an isa_parser_t as a field.
+    The point is that it is a step toward separating out
+    "configuration" (and ISA string parsing) from processor state. This
+    should be helpful for rejigging things so that we construct more from
+    a supplied device tree.
+
+commit a498c47a73aff56345d45844fe637c6edfdfdb11
+Author: Chih-Min Chao <chihmin.chao@sifive.com>
+Date:   Sun Feb 20 22:42:52 2022 -0800
+
+    csr: mstatus.sxl and mstatus.uxl are zero in rv32
+    
+    dont' set mstatus.sxl and mstatus.uxl in rv32 mode
+    
+    Signed-off-by: Chih-Min Chao <chihmin.chao@sifive.com>
+
+commit 53a3002e8cdbf94016d36c6071945bd663e826d5
+Author: Chih-Min Chao <chihmin.chao@sifive.com>
+Date:   Sun Feb 20 22:28:09 2022 -0800
+
+    perf: refine csr accessibility checking
+    
+    1. support zicntr and zihpm performance extensions
+       zicntr defines the unprivileged cycle/time/instret
+       zihpm defines the unprivileged hpmcounter3-31
+    
+    2. the accessibility are controlled only by
+       mcounteren/scounteren/hcounteren for access in different privilege
+       modes
+    
+    Signed-off-by: Chih-Min Chao <chihmin.chao@sifive.com>
+
+commit 24953e7c0072e372fc8f7315715f2ba435209e30
+Author: Rupert Swarbrick <rswarbrick@gmail.com>
+Date:   Fri Feb 18 17:04:34 2022 +0000
+
+    Rename minstret CSR classes to something more general
+    
+    No other functional change. This is preparation for a follow-up
+    commit, which will split MINSTRET and MCYCLE (to allow cosimulation
+    environments where the two values might not be equal)
+
+commit d1f2019ec1b412503a23a77bc1939693260e1966
+Author: sven <zhongcy93@gmail.com>
+Date:   Thu Dec 16 18:27:26 2021 +0800
+
+    TSR is read-only 0 when S-mode is not supported. (#890)
+    
+    According the privileged spec, TSR is read-only 0 when S-mode is not supported. (https://github.com/riscv/riscv-isa-manual/blob/56515289e5999512fe578cdddf861b730d790018/src/machine.tex#L860-L861)
+
+commit 5cf772f90a94bcbd2ed2191e6809bd14eee201cb
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sat Nov 13 09:17:10 2021 -0800
+
+    Use enum to specify the 3 options for masking of intr CSRs
+    
+    Because using two booleans gives the impression that there are four
+    possibilities. Since hideleg is itself masked by mideleg, there are
+    effectively only three choices, so make that explicit via enum.
+
+commit d3d526b85341b810e1a8be846f8437c3afd5fafe
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sat Nov 13 08:54:24 2021 -0800
+
+    Mask hideleg by mideleg
+    
+    According to spec clarification:
+    https://github.com/riscv/riscv-isa-manual/pull/771
+    
+    This has no functional effect today, because all the active bits of
+    hideleg are tied to 1 inside mideleg.
+
+commit ad96b52e18a51519b57509ab1964c43ba9559c07
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Mon Nov 8 22:03:07 2021 -0800
+
+    Move definitions of P and require macros
+    
+    Avoids namespace conflicts with Boost.
+    
+    Fixes #820 in a better way.
+
+commit 61244507802b5f8c13a4025baaf9a68b9f076c20
+Author: Markku-Juhani O. Saarinen <mjos@pqshield.com>
+Date:   Wed Nov 3 01:03:39 2021 +0000
+
+    Zbkx renames xperm.n and xperm.b as xperm4 and xperm8. (#846)
+    
+    Krypto 1.0 changes: Entropy source CSR, name.
+    List scalar crypto instruction groupings, as there is no single K extension.
+    
+    Co-authored-by: Markku-Juhani O. Saarinen <mjos@mjos.fi>
+
+commit b8d27b6ac039abc1c31b3caea4342cadfb682ea3
+Author: marcfedorow <mark.fedorov@cloudbear.ru>
+Date:   Fri Oct 15 02:18:53 2021 +0300
+
+    Split 'P' to EXT_ZPN and friends (#830)
+    
+    * Added ZMMUL extension
+    
+    * Splitted P-ext to its zeds
+    
+    * Typo fix
+
+commit 877686f4e0016819077dc1c23571c5bde770eb32
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Thu Oct 14 15:27:25 2021 -0700
+
+    Call parent verify_permissions() for float_csr_t (#832)
+    
+    We were not properly checking for Machine-level or Supervisor-level
+    CSR accessibility.
+    
+    No functional change, but only because all float_csr_t have User-level
+    permissions today.
+
+commit 3d54c8d8c61a9812f9795da7b28be1283eec9bec
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Oct 6 14:49:18 2021 -0700
+
+    Disallow any insn jumping from Off to Dirty in mstatus.FS/XS/VS
+    
+    Any such instruction should have taken an illegal instruction
+    exception first.
+    
+    This would have helped catch #823 where P-extension instructions were
+    setting vxsat=1 (and mstatus.VS=Dirty) without first checking for
+    mstatus.VS!=Off.
+
+commit e21ef3f9f5ba1f6e6a20c6adb1bd097341c5eee1
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Oct 6 13:38:29 2021 -0700
+
+    Allow vxsat to be accessed by P extension
+    
+    Part of #823.
+
+commit c45335a77011401509377016aa813737444fa492
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Oct 6 13:30:57 2021 -0700
+
+    Make vxsat into its own class
+    
+    Since its rules will need to be different than other vector CSRs
+    (coming next).
+    
+    No functional change intended.
+
+commit 66c4853bdc5b22bf4c4b364218c713e3f1e487f3
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Oct 6 11:15:19 2021 -0700
+
+    Allow instructions considering mstatus.FS/XS/VS to succeed when field doesn't exist
+    
+    This has no functional effect (yet), but will once I change the
+    P-extension instructions that access vxsat to properly consider
+    mstatus.VS.
+
+commit 4c185074899b6a57db8d45a162faa0a881451f7b
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Oct 6 11:09:35 2021 -0700
+
+    Let each sstatus CSR determine extension enable
+    
+    No functional change intended.
+    
+    This will allow me to consider whether the given field exists at all,
+    which I will eventually use to fix #823.
+
+commit 4618ca82bea2794dacc8d94ad93561fd94612e1b
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Oct 6 11:03:36 2021 -0700
+
+    Give sstatus_csr_t handles to its base_status_csr_t constituents
+    
+    So I can add specialized methods to base_status_csr_t next, for use
+    from within sstatus_csr_t.
+
+commit 12b58975e3ff7ecee838c9590287c8fcfb563312
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Fri Sep 24 15:10:03 2021 -0700
+
+    Modify logic for exception on writes to read-only CSRs
+    
+    To abide by this recent spec change: https://github.com/riscv/riscv-isa-manual/pull/694
+    
+    Discussed here: https://github.com/riscv-software-src/riscv-isa-sim/commit/46300119843e117dee006008d07129f0e83fd23b
+    
+    This has no functional effect today because the validate_csr() macro
+    in decode.h has already intercepted and thrown
+    trap_illegal_instruction() before we reach this code. But I plan to
+    remove that check next, now that all CSRs are converted to the csr_t
+    system. After that, this code will matter.
+
+commit 77362855bdce1fac09b20243ed2524b356620ace
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Sep 29 19:48:51 2021 -0700
+
+    Convert vlenb to csr_t
+    
+    Since it's constant, no new trace events will be seen.
+
+commit 72a6f9fac8f3c058d72af54a8554ee6fab2627ec
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Sep 29 12:44:24 2021 -0700
+
+    Convert vstart to csr_t
+    
+    Adds commit log events for vstart to many vector instructions.
+
+commit 347ff31125bee0fadd8e02bbe7a13c672dcf74a5
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Sep 29 09:30:42 2021 -0700
+
+    Convert vxsat to csr_t
+    
+    Adds commit log events for vxsat to many vector instructions.
+
+commit 8260cd1897e83761703d2b953c8baf051b2545ec
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Sep 29 11:04:05 2021 -0700
+
+    Initialize dcsr to fix Valgrind warnings about uninitialized vars
+
+commit 71faab7fa3922efc6f1a9fb1ecb4bca9093058e8
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Sep 28 16:43:05 2021 -0700
+
+    Convert sentropy to csr_t
+
+commit 7fecd35cda28bb7ee09730e7c839dd4496b61fb7
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Fri Sep 24 22:24:27 2021 -0700
+
+    Convert FCSR to csr_t
+
+commit 2b26a3cdf1cf391893a0a1a31815ac59d96ff05c
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Fri Sep 24 22:02:14 2021 -0700
+
+    Convert frm & fflags to csr_t
+    
+    Adds proper logging of fflags on FP arithmetic ops.
+
+commit 663f71bb869c068b6a2896d970a719528f4ec7d8
+Merge: f9647e82 dac0d3ce
+Author: Andrew Waterman <andrew@sifive.com>
+Date:   Mon Sep 27 13:47:46 2021 -0700
+
+    Merge pull request #815 from scottj97/mstatush
+    
+    Convert mstatush to csr_t
+
+commit dac0d3ce7161d480c06b8a19675f66ae636bc20d
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Sep 26 21:57:36 2021 -0700
+
+    Make mstatush bits writable on hypervisor configs
+    
+    Fixes #812.
+    
+    Note that only GVA & MPV are actually writable; MBE and SBE are fixed
+    inside mstatus_csr_t::unlogged_write().
+
+commit 0088ece83a31a42ca2b9ba1f5713cfe7f396f506
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Sep 26 21:39:24 2021 -0700
+
+    Convert mstatush to csr_t
+    
+    Maintains non-writability reported as issue #812
+
+commit 1fe77945de9bacaf1e10f05b1dad4d115c552216
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Sep 22 18:40:04 2021 -0700
+
+    Convert dcsr to csr_t
+
+commit c3f918afad4e57ba9dcc2eb4c00ebb76e981108a
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Sep 22 17:54:30 2021 -0700
+
+    Convert dpc to csr_t
+
+commit 2c9648735e5f7ba6d3e68bd20f6b9b599743016c
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Sep 22 17:27:47 2021 -0700
+
+    Convert dscratch0/1 to csr_t
+
+commit 428c2aa1f074e8280fb9fc799e38c7289abc7c74
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Sep 22 14:14:55 2021 -0700
+
+    Convert tdata2 to csr_t
+
+commit 1dfd188fe40273ed00d84a63f355592aeb6dfed8
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Sep 22 13:32:27 2021 -0700
+
+    Convert tdata1 to csr_t
+
+commit ab8e2fe519e81cf1cfd1dbecbf3ec172cd9db666
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Sep 22 10:27:14 2021 -0700
+
+    Convert tselect to csr_t
+
+commit 81d99e6b32fd4e7cbec49de86a2f6adc80fa55e9
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Sep 20 14:56:14 2021 -0700
+
+    Remove no-longer-used counteren_csr_t
+
+commit 3b3fbe6db65b2e7404b05cddd3b795cdf530398e
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Sep 20 14:50:08 2021 -0700
+
+    Convert hgatp to csr_t
+
+commit 53f810cd744b5ce912415038791eaee2836eec6f
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Sep 20 14:31:03 2021 -0700
+
+    Convert hideleg to csr_t
+
+commit 1587bc493030400d5b5247a0286016b418bb3c55
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Sep 20 14:17:22 2021 -0700
+
+    Convert hstatus_csr_t to more generic masked_csr_t
+    
+    Which I will reuse next for other CSRs.
+
+commit bf8578c04602c89f44aacecdbbc2abab738dac48
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Sep 20 13:08:23 2021 -0700
+
+    Convert mtval2 to csr_t
+
+commit a0baa4bb265bc60a73c142c2a6db1bf78e47a252
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Sep 15 20:31:27 2021 -0700
+
+    Fix logged value of minstret
+    
+    It was off by 1.
+
+commit 19a1d6f028f0e72d705091c1e8165cf93942431c
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Feb 22 18:34:05 2021 -0800
+
+    Provide mechanism (not yet used) for the logged value to be different from read()
+    
+    I will need this soon for minstret.
+
+commit 4526550db3050011bf459b2cd5abdec51f212d83
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Sep 14 20:39:14 2021 -0700
+
+    Simplify logic and eliminate cpp macros
+
+commit 55a272562ea12abc2fe3057e89247615525b7cc7
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Sep 14 20:17:14 2021 -0700
+
+    Convert unprivileged counter shadows to csr_t
+    
+    Soon I will simplify some of these cpp macros.
+
+commit 3092501627f8d3f7e0aae6dc271a6edc15c80da1
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Sep 14 19:45:58 2021 -0700
+
+    Convert mhpmcounter, mhpmevents to csr_t
+
+commit b23d9d5b1d906fd92a160774986ad40851c21020
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Sep 14 18:56:45 2021 -0700
+
+    Convert mcycle[h] (which is a mirror of minstret[h]) to csr_t
+
+commit d0a3e776084f3c3d39bba205f6e1304c765c6cc5
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Sep 14 18:24:24 2021 -0700
+
+    Convert minstreth to csr_t
+
+commit f19f39f0c11d793e29196f0afc65f7f21c59871e
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Sep 14 16:29:48 2021 -0700
+
+    Convert minstret to csr_t
+    
+    This is a little messy in RV32 since it's accessed via two different
+    CSRs (upper and lower halves).
+    
+    This changes logging of mcycle[h] to log a change to minstret[h],
+    since that's how it's always been implemented in Spike. There is no
+    separate mcycle register.
+
+commit 056fc389d2e63eecf5d47bc9d6f80476959623be
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Sep 14 16:45:55 2021 -0700
+
+    Add new method csr_t::log_special_write()
+    
+    For use by minstreth next.
+
+commit 07ae07ff015821f43f1a8c814d829314979bf363
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Thu Sep 9 09:25:56 2021 -0700
+
+    Fix segfault when executing 'csrw pmpaddr15' when n_pmp==16
+    
+    Off-by-one error introduced in 69008075a1f3f9d7ed6fec3489c50e5d7701d366
+
+commit 83502ad4afd3e3387aed4c45b290d00fd2fbc2ee
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Sep 7 11:52:21 2021 -0700
+
+    Remove class logged_csr_t
+
+commit 629b1e6ff3fbfc2a3be25c4686bfac92f78d2bb0
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Sep 7 11:48:44 2021 -0700
+
+    Move logging functionality into root class
+    
+    So I can remove logged_csr_t next.
+
+commit 5cccd796815e09645a5985f306c4a94eec9d130d
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Sep 7 11:42:13 2021 -0700
+
+    Implement mip_proxy_csr_t as child of logged_csr_t
+
+commit ab38a47582f4da380a0de620ad9f55d8ad373241
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Sep 7 11:37:36 2021 -0700
+
+    Implement mie_proxy_csr_t as child of logged_csr_t
+
+commit d57230e51e8f88e8c9413ad77af9fccb80bfadb3
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Sep 7 11:28:53 2021 -0700
+
+    Implement virtualized_csr_t as logged_csr_t
+    
+    Goal is to eventually fold logged_csr_t back up into csr_t.
+
+commit f2868bc734fe954c5c0be72aaf297a4e15d788f0
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Thu Sep 2 14:58:40 2021 -0700
+
+    Let compute_new_satp call read() himself
+
+commit 321f7d0fdae45c75150cc12aaa13851a81d58cd7
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Thu Sep 2 14:52:47 2021 -0700
+
+    Move satp methods into satp classes
+
+commit 4009d54609a61ad594f00fbce4a197dba88ff3de
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Thu Sep 2 14:50:04 2021 -0700
+
+    Give virtualized_satp_csr_t a handle to satp
+    
+    Parent class has orig_csr but it's generic csr_t_p, and I will need to
+    call methods on satp_csr_t next.
+
+commit 55316421a3f66606a801a471d1b4600b080dba2b
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Thu Sep 2 14:19:46 2021 -0700
+
+    Move satp methods to csrs.cc
+    
+    Since they are soon to move classes.
+
+commit 14219453156c573caa9dfc0936e1bdfd71138ea3
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Mar 2 00:02:57 2021 -0800
+
+    Use virtualized_csr_t for satp and vsatp
+    
+    This was much more complicated than the others because of the
+    mstatus.TVM and hstatus.VTVM bits, and because of the special
+    WARL-ness of satp that doesn't apply to vsatp.
+    
+    It appears (based on reading the code) that the commitlog for these
+    two was problematic. CSRW to satp when V=1 was reporting a write to
+    satp instead of vsatp which was actually written. Also a CSRW to
+    vsatp looks like it was not being logged at all. Both problems
+    should be fixed now.
+
+commit 1ece34fd31784379c09b194ae77c24157f8474ff
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Fri Jul 23 12:45:10 2021 -0700
+
+    Convert mcounteren to csr_t
+
+commit 265289c859c2584d4410b68a43292fbd24e581bf
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Mar 24 18:08:45 2021 -0700
+
+    Move method definition with the others of its class
+
+commit cb75703a7fc8e4bd610234a642e36bbde479987d
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Mar 24 18:00:03 2021 -0700
+
+    Move backdoor write method to mip-specialized class
+    
+    Since that's the only one that needs it.
+
+commit 7e44eb629aa3b5af7b4515dbce7e9bfc8dbaff4f
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Mar 24 17:57:30 2021 -0700
+
+    Stop using method that I'm about to move
+
+commit ba6f0dc65c14780683f2248274a3395dc7df02fa
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 22:20:32 2021 -0800
+
+    Convert hstatus to csr_t family
+
+commit 96aed2f5745e2effc173dc6cd2d2d24fa0d49c2f
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 21:57:00 2021 -0800
+
+    Convert medeleg to csr_t family
+
+commit b3220fe329144b42d3ab4d5d0cf0b56c2975eb41
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 19:48:58 2021 -0800
+
+    Convert mideleg to csr_t family
+
+commit 5c1d635c6e569c03933e96b57053c2a2e988bcb0
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 14:32:02 2021 -0800
+
+    Convert sie/hie/vsie to csr_t family
+
+commit 82bf328e92c9d348617a8466abed4a2c0e94280b
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 14:14:00 2021 -0800
+
+    Convert mie to csr_t family
+    
+    This changes the commitlog of `csrw sie` so that it only logs a change
+    to `mie`, instead of both `mie` and `sie`. This is arguably
+    preferable, since there is no real `sie` register -- it is only a view
+    into `mie`.
+    
+    It also adds proper tracing of the modification to `mie` when doing
+    `csrw` to `hie` and `vsie`, which were both missing previously.
+
+commit 894ed1648735b9e273649e30cddfb057d52adaad
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 14:03:53 2021 -0800
+
+    Make proper subclass for mip
+    
+    To segregate things that differ from mie.
+
+commit a9f643d259f31b2b9d1f463a1ed14d10d5b7797a
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 13:56:31 2021 -0800
+
+    Rename class which I will share with mie soon
+
+commit 07439eec6916d04f9829275f51cd63d0cb10cda8
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 13:49:59 2021 -0800
+
+    Use existing write_with_mask() to simplify code
+
+commit 8c2eda23a0089651f9f5cfca6c47f5579251160f
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 13:45:30 2021 -0800
+
+    Rename write_mask to ip_write_mask
+    
+    Since hip & hie have different write masks, I will need a separate
+    ie_write_mask, coming next.
+
+commit 735978e740cf15ae53ac0a227b94d6c2d76955c2
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 13:39:08 2021 -0800
+
+    Convert sip etc to a form I can share with sie etc next
+
+commit b8214a5e58235a2066007438cbbe692c95ee0085
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 12:46:02 2021 -0800
+
+    Use generic_ip_csr_t for vsip
+
+commit 5af6547cd3b8dc7a74c61a05f7de7d96a314ee5f
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 12:42:40 2021 -0800
+
+    Use generic_ip_csr_t for hip
+
+commit 52c12a2f5f18d4b6cde79df1e00e2b6246cd4e5f
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 12:40:58 2021 -0800
+
+    Use generic_ip_csr_t for hvip
+
+commit 1294e8b216b60f63f9de724c71b2cf116fefc351
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 12:06:04 2021 -0800
+
+    Add generic *ip access class and use it for sip
+
+commit 9e84ccbb47ab425da33586ace2b84523911dfec2
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 11:32:32 2021 -0800
+
+    Extract common expression up to class member variable
+
+commit 46ce8406b4dc4d3b04e9098fd6dd104e7a17d4cc
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 11:23:01 2021 -0800
+
+    Implement sip using virtualized_csr_t like other virtualized CSRs
+    
+    Possible now that I have vsip converted to csr_t.
+
+commit 1d1c5977159e635c084596ccfa8ff536b2534e47
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 11:19:38 2021 -0800
+
+    Convert vsip to csr_t family
+
+commit 9afef59a2a2a718d99e601529263e7110a0c6e92
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 11:08:50 2021 -0800
+
+    Convert hip to csr_t
+    
+    Soon I will consolidate these nearly-identical new classes into one
+    parameterized class.
+
+commit 3904aac0b9b7b68cee4675215ef7769bc517a017
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 11:04:36 2021 -0800
+
+    Give every csr_t access to state_t
+    
+    Since so many places need it.
+
+commit edf69ba85a8c1758c9336346871ff866f44fb841
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 10:58:37 2021 -0800
+
+    Convert hvip to csr_t family
+
+commit af6b987d388ee9e10401ca1a176a6206339e722d
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 10:50:44 2021 -0800
+
+    Convert sip to csr_t family
+
+commit 9bd2bc044aa0f150d9128cf904ab9d3b41e41fcc
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 10:36:32 2021 -0800
+
+    Reuse common maybe_flush_tlb() method
+    
+    This has no functional effect, even though vsstatus is now looking at
+    MPP and MPRV, because those bits never change in vsstatus.
+
+commit 61f19574fe1891a088b127a2529bed0e62071f13
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 10:33:04 2021 -0800
+
+    Extract maybe_flush_tlb() method to DRY up code next
+
+commit 0c4cb3d904a17fbde8d7ba16fb384e9dabfc1d3d
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 10:15:37 2021 -0800
+
+    Move enable detections into sstatus_csr_t
+    
+    To DRY up code in decode.h.
+
+commit ab9c383db234afb9a3c5e0f1d9499b45a86f1f3c
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 09:13:05 2021 -0800
+
+    Move dirtying logic into sstatus_csr_t
+
+commit 15925bad582e86d92d32ab4aa089b414262f87de
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 09:05:37 2021 -0800
+
+    Add new class for virtualized sstatus
+    
+    So I can add more functionality here next.
+
+commit 82299d1a1a8f82ab43ed9ba0ab1fc4d1795446c5
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 8 08:48:19 2021 -0800
+
+    Pass in mstatus as explicit parameter to sstatus_proxy
+    
+    To make the order dependency obvious in state_t::reset().
+
+commit 7c8ae9ba4d6f2e8b5b35918d4a0ec2f0f965ca43
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 23:27:43 2021 -0800
+
+    Convert mip to csr_t family
+    
+    This changes the commitlog of `csrw sip` so that it only logs a change
+    to `mip`, instead of both `mip` and `sip`. This is arguably
+    preferable, since there is no real `sip` register -- it is only a view
+    into `mip`.
+    
+    It also adds proper tracing of the modification to `mip` when doing
+    `csrw` to `hip`, `hvip`, and `vsip`, which were all missing
+    previously.
+
+commit 6aa7506e90fb6b936288504e459eec72e42f27b2
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 22:52:06 2021 -0800
+
+    Extract function log_write() for upcoming child classes to use
+
+commit 98f23b8d7339505061b1c8bd113cc034ecc41ac2
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 21:35:13 2021 -0800
+
+    Initialize vsstatus based on mstatus
+    
+    So there's only a single source of initial values.
+
+commit d4bc555fea4e3691fb3bed561fd1ee6aab8a4dc9
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 20:01:16 2021 -0800
+
+    Simplify implementation of adjust_sd()
+    
+    And leave note on future gotcha if we ever support variable XLEN.
+
+commit a59e0a80da1403596d2ae3d3b19a1288d0321b0c
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 19:54:21 2021 -0800
+
+    Simplify logic in mstatus write
+
+commit 4adc2a6d7a9a6449ae010f1fee83d4f13248d6fa
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 19:52:16 2021 -0800
+
+    Add const to lots of variables
+    
+    Because why not?
+
+commit 56452d67007aef165d6003d6a39d8ed2a72f35d6
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 19:47:32 2021 -0800
+
+    Move init of fixed fields to mstatus constructor
+
+commit 7fac4de1ea2895c3a3635921ec46c1d7a902548c
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 19:43:28 2021 -0800
+
+    Simplify logic in vsstatus write
+
+commit ca0850358e08397dcf712a42bc6631d283646e2b
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 19:37:05 2021 -0800
+
+    Reuse sstatus bitmask for mstatus bits
+    
+    To reduce repetition in code.
+    
+    This has one functional effect that I can see: before this change, on
+    a config that supports floating point but not S-mode or Vector,
+    writing misa.F=0 would freeze the FS bits in mstatus. I assume this
+    was an accident and never the intended behavior, though I can't find
+    anything in the privileged spec about this.
+    
+    Now the FS bits will always be writable regardless of misa.F, if the
+    bits exist at all. (Because we now call extension_enabled('F') only
+    once, at reset, instead of every mstatus write.)
+
+commit a8ca35135ade63f5133992c79de7f9625a19e532
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 19:27:33 2021 -0800
+
+    Calculate sstatus write mask the same way as mstatus write mask
+    
+    This has no functional effect today, since vsstatus always has all
+    these bits (since Hypervisor requires so many of these other optional
+    features), and sstatus_proxy writes through mstatus, which already
+    considers all these options.
+    
+    This change will enable me to share this sstatus mask within mstatus
+    soon.
+
+commit fa93450644d210ea9f70550c9bfbc94a6d62ed7f
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 19:11:56 2021 -0800
+
+    Calculate sstatus write mask in a new function
+    
+    Since it's about to get a little more complex than one expression can
+    reasonably contain.
+
+commit e0208820b26c90035bc09d4192b50ed803fade19
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 19:01:16 2021 -0800
+
+    Combine unnecessarily segregated mask computations
+
+commit 62d827bfe3337d4a8d69b98097906f84fbf7db8d
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 18:33:18 2021 -0800
+
+    Move vsstatus init to constructor
+    
+    No need to condition on U-mode support because vsstatus is only for
+    hypervisor which requires U-mode support.
+
+commit 9666cb740c825be33808b3accc8b34ae1fd9ac5d
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 18:21:07 2021 -0800
+
+    Use common source for sstatus write mask
+
+commit 5f6ec74e88840e2454eb6ad811fd75a7b27ef93f
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 18:18:56 2021 -0800
+
+    Move sstatus masks up to parent class
+    
+    So I can use them from other classes next.
+
+commit 1bca5a3f81497116e312e4d37d6d82560102b2dc
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 18:15:22 2021 -0800
+
+    Rename vars to sstatus_*_mask
+    
+    To distinguish from mstatus masks, since these variables will soon
+    move to a class that shares state with mstatus.
+
+commit 4c004fcdf6cff8f98d02a3b8e11aaba4ea8b20a8
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 18:11:51 2021 -0800
+
+    Make sstatus_proxy a child of base_status_csr_t
+    
+    Becuase I want to share some code from there next.
+
+commit 2178d0266374421fbd5fcf50433dd6d47306fe49
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 18:08:02 2021 -0800
+
+    Bug fix: vsstatus should have an XS field if mstatus & sstatus do
+
+commit 18d19fa50a3f2e98664cd655f8d33e763b2e0c65
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 17:57:20 2021 -0800
+
+    Only allow XS to be writable if an extension is present
+    
+    This has no functional effect (yet) because this write_mask today only
+    applies to sstatus_proxy, which does its writes through
+    mstatus_csr_t::unlogged_write(), which applies this same mask.
+
+commit 03d7b82d018ad73591ad9ebf239b00f5cbacd951
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 17:55:22 2021 -0800
+
+    Use new adjust_sd() function to remove duplicated logic
+
+commit 03b31da845175370bb917d979aadfd46135404f3
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 17:53:57 2021 -0800
+
+    Extract new function adjust_sd() for the Some Dirty bit
+
+commit ff0140d81ed1fc63ca8e7381b4c11e2e443ef7e1
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 17:44:37 2021 -0800
+
+    Remove UXL from vsstatus writable bits
+    
+    No functional effect, since it was getting clobbered by the
+    set_field() below anyway.
+
+commit 60243a3bf9f86de5b8b58807ae218f1e3aedc31c
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 17:40:38 2021 -0800
+
+    Move SSTATUS_VS_MASK into vsstatus_csr_t
+    
+    Since that's the last place it was being used.
+
+commit de3e41b0eb21e902017bb0cef71d84f17f889631
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 15:58:51 2021 -0800
+
+    Define read_mask in terms of write_mask
+    
+    To make it easier to see the differences.
+
+commit 12eae5a1e6b2fbb79c314a37bfcc29ab29b9d7e8
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 15:56:11 2021 -0800
+
+    Move write mask up into sstatus_proxy class
+    
+    So we don't have to recalculate it every time.
+
+commit ce29c510ca23f0af7d5118d46d1613157fdefc6e
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 15:54:02 2021 -0800
+
+    Rename sstatus_proxy write mask variable
+    
+    Since I'm going to move it up into the class next.
+
+commit 47741d151b9e0cfe7d438def95d7d98028153d33
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 15:53:05 2021 -0800
+
+    Move sstatus_proxy read_mask to class level
+    
+    So we don't have to recalculate it every time.
+
+commit 8e238310e17213a5187d48e843f9b8fb3ad403c1
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sun Mar 7 15:49:35 2021 -0800
+
+    Rename sstatus_proxy mask var to read_mask
+    
+    To clarify its purpose, since I'm going to move it up into the class
+    next.
+
+commit b195755da66963351772cd96fac46bcf6557ac2f
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sat Mar 6 14:28:27 2021 -0800
+
+    Add extension_enabled_const() method
+    
+    This will enable upcoming optimizations that make assumptions about
+    which bits in misa are writable, without those assumptions making the
+    code brittle.
+    
+    I.e. if those assumptions should ever change, the code will
+    immediately fail and alert the maintainer of the violated assumption.
+
+commit 96abf01e3a846b5eb261f2556e776207faf19f7c
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sat Mar 6 14:14:37 2021 -0800
+
+    Rename supports_extension() to extension_enabled()
+    
+    Because this checks the dynamic run-time state of misa, let's use the
+    same language as the misa spec (enabled vs disabled).
+    
+    Calling it supports_extension() could be confused for a check of the
+    static configuration of Spike (i.e. the --isa string), which it was
+    not.
+
+commit 3518df9b69d0107f1b1d6639bef09ded697f73f9
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sat Mar 6 14:06:36 2021 -0800
+
+    Calculate misa write_mask during construction
+    
+    Since it's never going to change, and I want to use it elsewhere soon.
+
+commit e051829a03dc44fc0edca9fbf351db5848b12bfa
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sat Mar 6 13:34:11 2021 -0800
+
+    Convert write_mask calc to one expression
+    
+    So it can be const.
+
+commit 6a97dca21c8f2201583d0e53a75abd5644773da8
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sat Mar 6 13:31:59 2021 -0800
+
+    Rename variable for misa write_mask
+
+commit 72be69a43baee53da339cdbdc57e4656d7df9fca
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sat Mar 6 13:28:07 2021 -0800
+
+    Finish conversion of misa to csr_t
+
+commit f713830fbfb7a99748dc0c1f3a5bbe9d85f5e6e8
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sat Mar 6 13:07:09 2021 -0800
+
+    Begin to convert misa to csr_t family
+    
+    First I had to get rid of the one usage of state.misa before
+    state.reset() was called.
+    
+    This is pretty ugly. I would like to refactor the CPU configuration
+    into a separate step, so that when processor_t is constructed, the
+    configuration is known and fixed. But that's a project for another
+    day.
+
+commit 971cf098413fe227a28f5dc30a1e50872e9e04ef
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sat Mar 6 08:51:32 2021 -0800
+
+    Add get_const_xlen() as a way to document assumptions of unchanging xlen
+    
+    Spike does not support dynamic xlen today, but if it should in the
+    future, this will help identify all the code that needs to be updated.
+
+commit ead8870cb7a3170c1729be17ebf93b7ce25c439f
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sat Mar 6 08:38:29 2021 -0800
+
+    Remove unnecessary recalculation of sstatus.SD bit
+    
+    We calculate this on write, and xlen never changes.
+
+commit 10eca96f663620aeed517af37a4edbec747a6b07
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Sat Mar 6 08:15:50 2021 -0800
+
+    Remove unnecessary masking of vsstatus
+    
+    We mask on write; no need to mask again on read.
+
+commit 7e1c8f9536ed437870f3bae3b43149d26053bc83
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Fri Mar 5 23:12:17 2021 -0800
+
+    Add common base class for status CSRs
+    
+    So I can soon move shared code into here.
+
+commit d934623e10be2187614823038fb218e40561291b
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Fri Mar 5 19:29:12 2021 -0800
+
+    Convert mstatus_csr_t to use logged_csr_t as parent
+    
+    So I can soon insert a new class where I can move some of the
+    duplicated logic between mstatus and vsstatus.
+
+commit c18d5c7d16122b00e4e5379a3e4f4bcd6bd0d08d
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Fri Mar 5 11:22:19 2021 -0800
+
+    Remove no-longer-needed backdoor_write() methods
+
+commit 36f62570b64d66cea6d7772c34abcd944a004adf
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Fri Mar 5 13:44:17 2021 -0800
+
+    Don't flush TLB unless absolutely necessary
+    
+    If we're not in VS-mode (V=1) then vsstatus.MXR and vsstatus.SUM don't
+    affect the TLB contents, so we don't need to flush when they change.
+
+commit ee2f64b3024a5a88efd6231bdea00dcfe56ac6d3
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Fri Mar 5 13:38:45 2021 -0800
+
+    If TLB-affecting bits change in vsstatus, flush TLB
+    
+    This is not strictly necessary today but it will be soon, once I
+    switch to using a virtualized sstatus.
+    
+    It's overly pessimistic because it also depends on the source of the
+    write: csrw to vsstatus from HS-mode or M-mode doesn't really need to
+    flush, but csrw to sstatus from VS-mode does. (This will be fixed in
+    the next commit.)
+
+commit 061420d1a2bdae56dcfa484e16c1f745b9ad919d
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Fri Mar 5 13:00:58 2021 -0800
+
+    Remove unnecessary term
+    
+    MXR only applies if paging is enabled, and that is handled by the has_page
+    condition.
+
+commit f4db821afbfdd7b2c5f00fd239c084f6036b7094
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Thu Mar 4 16:28:39 2021 -0800
+
+    Convert mstatus into csr_t family
+    
+    Step 3 of plan described in csrs.h.
+
+commit 58f0f46c10c3c3e2c39bee2eae04570b58204d07
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Sep 1 09:47:12 2021 -0700
+
+    Add virtualized_csr_t::readvirt() to simplify upcoming code
+
+commit 8b0684713ca27c17db7f91e5b7b1d23dc605e8c7
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Thu Mar 4 14:27:34 2021 -0800
+
+    When reading proxy sstatus, show only sstatus bits
+
+commit 35140dff22ab4487d8a47f016253142bb8e5666f
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Thu Mar 4 14:17:47 2021 -0800
+
+    Start to convert sstatus to csr_t family
+    
+    See plan in csrs.h.
+    
+    This adds mstatus.FS dirty writes to the commit log, which were
+    previously missing.
+
+commit 6aaeb50adbb4b14df2e5956ebb0e888616d4d99b
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Thu Mar 4 09:30:16 2021 -0800
+
+    Disable tracing of vsstatus during swap
+    
+    Revert this later when that swap behavior is no more.
+
+commit 9ec2188a4478edbd2f84ee3b80b18db6f8b8648d
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Mar 3 22:46:28 2021 -0800
+
+    Convert vsstatus to csr_t family
+    
+    Makes a mess out of the tracing though, because of how every toggle of
+    the VBit swaps mstatus and vsstatus.
+
+commit a4fe84f172f0f068bd1c1d2742595c983efcdc40
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Mar 2 11:29:48 2021 -0800
+
+    Create new cause_csr_t to handle interrupt bit when varying xlen
+    
+    Spike does not generally support dynamic xlen, but this code to adjust
+    the interrupt bit was there for scause and vscause, which will soon
+    share this new cause_csr_t. So why not also support this behavior for
+    mcause?
+    
+    Today since xlen==max_xlen always, this should have no functional
+    effect.
+
+commit 7e5b84c4a0d2fc722a49f37fa13c2e43915073c7
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 1 23:54:56 2021 -0800
+
+    Convert mtvec to csr_t family
+
+commit 016c03c36eb7a5d8657d4c12aee0fdbc49276eef
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Mar 1 10:06:18 2021 -0800
+
+    Implement epc_csr_t and use it for mepc register
+    
+    The commitlog will now properly log writes to mepc that occur when a
+    trap is taken.
+    
+    sepc and vsepc will also use this new data type; coming soon.
+
+commit a18c3d9922138c8b988f067197c5819aa6cf6b89
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Feb 24 12:53:45 2021 -0800
+
+    Create virtualized_csr_t and use it for sscratch
+    
+    This changes the commitlog for CSRW to sscratch in virtualized modes:
+    it will now correctly report that the write was to vsscratch instead
+    of sscratch.
+
+commit f89e98e8af80323d2843c1acf93ff4ca1b6cf04c
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Feb 24 10:25:31 2021 -0800
+
+    Move pmpcfg into pmpaddr_csr_t
+    
+    Since that's who needs access to it mostly.
+
+commit ca7700db2363b08ae65f237ef9819e72066adb67
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Feb 24 10:09:17 2021 -0800
+
+    Move permissions check into pmpaddr_csr_t
+    
+    This was the last place outside of the csr_t hierarchy that pmpcfg was
+    being accessed.
+
+commit 7ad11c99067b9fc69f7f7beb5d8d19e0857a4770
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Wed Feb 24 09:14:55 2021 -0800
+
+    Move homogeneity detection into pmpaddr_csr_t
+
+commit 1e9c399a3699f3bd98badb1956b41cf0c2b4aa4f
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Feb 23 17:46:53 2021 -0800
+
+    Simplify match4() logic
+
+commit 1bc64aff832fd4b53f5abfa58a3fa2fc894b5bc1
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Feb 23 17:43:16 2021 -0800
+
+    Rename parameter cur_addr to addr
+
+commit d9bd31becc124d3334f6fb0908d09d2cd8b06dd1
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Feb 23 17:40:39 2021 -0800
+
+    Add new method match4()
+    
+    To simplify calling code.
+
+commit 95824344eb56097e9bb45cab9d22ab370908c2ff
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Feb 23 17:30:18 2021 -0800
+
+    Add tor_base_paddr() method to pmpaddr
+    
+    This will enable further restructuring of these loops in mmu.cc in the
+    next commits.
+
+commit 82aa7891e24de9c25a949f948ef6f47a732d7fdb
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Feb 23 17:23:57 2021 -0800
+
+    Remove no-longer-needed raw_value() method
+
+commit 3c676a83acfc4964d6c27d851c91f7878dd2a133
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Feb 23 17:23:24 2021 -0800
+
+    Add napot_mask() function to simplify callers
+
+commit 6eedad425a0d08cabad4deaee52f90bf0f54bf65
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Feb 23 16:28:49 2021 -0800
+
+    Add tor_paddr() method to simplify callers
+
+commit 44b0de2c5aded05ee790f80ce6f1aff5902c5989
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Feb 23 10:58:05 2021 -0800
+
+    Make pmpidx a class field
+    
+    Instead of repeatedly calculating it.
+
+commit b6fc7ac31dffb63c374129466b14e1f2ab19eb45
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Feb 23 10:56:02 2021 -0800
+
+    Rename variables to pmpidx
+    
+    Since I'm about to pull this out into a class field.
+
+commit 9fd9307bc6159b90cc03bc26f6cb73ac6a6d49c4
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Feb 23 10:53:16 2021 -0800
+
+    Use size_t for array index
+    
+    Consistent with other calculations like this one, and preferred in
+    C++.
+    
+    This was an issue in the old code too, before converting pmpaddr to
+    csr_t.
+
+commit 69008075a1f3f9d7ed6fec3489c50e5d7701d366
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Feb 23 10:49:50 2021 -0800
+
+    Simplify calculation of next_locked_and_tor()
+
+commit 369f6b1c3fb22e277ff70a7f196680a780e3e73c
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Tue Feb 23 10:47:08 2021 -0800
+
+    Extract function next_locked_and_tor() to simplify logic
+
+commit 65b9f41ec06da3e99ce5510526c5c63a84d8a1e5
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Feb 22 21:35:09 2021 -0800
+
+    Convert pmpcfg to csr_t
+    
+    Note the removal of this line:
+    
+        require((which & ((xlen / 32) - 1)) == 0);
+    
+    Which causes illegal instruction trap when accessing pmpcfg1 and
+    pmpcfg3 on RV64.
+    
+    This check is no longer explicit; instead we simply don't create
+    entries in csrmap for those nonexistent regs.
+    
+    This also changes logging such that writes to unimplemented registers
+    (e.g. pmpcfg2 when n_pmp==8) are no longer reported in the commit log.
+
+commit f38dc8e243191f1d4ef29376c765e9c7edd58704
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Feb 22 21:30:58 2021 -0800
+
+    Convert pmpaddr* to csr_t family
+
+commit 99a8a7ba69f3a854f40e6c83e2bf9b810e0dc5fa
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Feb 22 18:17:04 2021 -0800
+
+    Give CSR writes a way to bypass logging
+    
+    For cases where nothing is actually written.
+    
+    I will need this soon for PMPADDR*.
+    
+    Note that the commitlog today sometimes includes writes that should
+    have been squashed. Those writes will disappear from the commit log as
+    those CSRs are converted to this system.
+
+commit b30427a49f0b98e6ea516f775e421ed4ac7a3958
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Feb 22 16:09:40 2021 -0800
+
+    Calculate CSR privilege fields on construction
+    
+    Instead of every time accessed.
+
+commit 2112cd0025f9d5c1f095756516ef24e6d63f568f
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Feb 22 16:04:04 2021 -0800
+
+    Add permission checks to csr_t class
+    
+    This is a reimplementation of the check at the end of
+    processor_t::get_csr(). That old check will eventually go away once
+    all the CSRs are converted to csr_t.
+
+commit ca2be0a31c1513bf95c14fbf6e09f0dc9ec3d2bd
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Feb 22 12:02:19 2021 -0800
+
+    Move CSR logging into csr_t hierarchy
+    
+    This will eventually allow simplification and cleanup of the CSR
+    logging facility.
+
+commit 04fa95cafbb33b3590ea08e202ba2b829d2270f2
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Feb 22 13:44:47 2021 -0800
+
+    Add intermediate class that will (soon) log all CSR writes
+
+commit aec8e11b1419b6329e268f9f171a686ad16a57ad
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Feb 22 13:27:39 2021 -0800
+
+    Record processor_t* in csr_t
+    
+    Because many (not-yet-converted-to-csr_t) CSRs need to read and/or
+    write other CPU state as part of their operation.
+
+commit 4b46f1bedc4bedbf1d57f79363ef81094d9b1de6
+Author: Scott Johnson <scott.johnson@arilinc.com>
+Date:   Mon Feb 22 13:22:35 2021 -0800
+
+    Extract csr_t implementations to separate file
+    
+    This will enable me to use some forward references here soon.

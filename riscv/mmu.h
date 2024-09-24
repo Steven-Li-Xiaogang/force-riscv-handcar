@@ -14,6 +14,53 @@
 #include "cfg.h"
 #include <stdlib.h>
 #include <vector>
+#include "log_print.h"
+
+#ifdef FORCE_RISCV_ENABLE
+#include "Force_Memory.h"
+
+//!< MmuEvent - struct used to record memory events from simulator...
+typedef enum _Memtype { Strong,Device,Normal } Memtype;
+typedef unsigned int CacheType;
+typedef unsigned int CacheAttrs;
+struct MmuEvent
+{
+  MmuEvent(uint64_t _va, uint64_t _pa, Memtype _type, bool _has_stage_two, CacheType _outer_type, CacheAttrs _outer_attrs, CacheType _inner_type, CacheAttrs _inner_attrs)
+    : va(_va), pa(_pa), type(_type), has_stage_two(_has_stage_two), outer_type(_outer_type), outer_attrs(_outer_attrs), inner_type(_inner_type), inner_attrs(_inner_attrs)
+  {
+  }
+
+  uint64_t va;
+  uint64_t pa;
+  Memtype type;
+  bool has_stage_two;
+  CacheType outer_type;
+  CacheAttrs outer_attrs;
+  CacheType inner_type;
+  CacheAttrs inner_attrs;
+};
+
+struct SimException {
+  SimException() : mExceptionID(0), mExceptionAttributes(0), mpComments(""), mEPC(0) {}
+  SimException(uint32_t exceptionID, uint32_t exceptionAttributes, const char* comments, uint64_t epc) :
+    mExceptionID(exceptionID), mExceptionAttributes(exceptionAttributes), mpComments(comments), mEPC(epc) {}
+  uint32_t mExceptionID; //!< 0x4E: eret. Other values are scause or mcause codes.
+  uint32_t  mExceptionAttributes;  //!< copied from tval.
+  const char* mpComments; //!<  exception comments, identifies enter, exit and m or s modes.
+  uint64_t mEPC; //!< exception program counter.
+};
+
+extern "C" {
+    // memory r/w callback
+    void update_generator_memory(uint32_t cpuid, uint64_t virtualAddress, uint32_t memBank, uint64_t physicalAddress, uint32_t size, const char *pBytes, const char *pAccessType);
+
+    // mmu update callback
+    void update_mmu_event(MmuEvent *event);
+
+    //exception handling callback
+    void update_exception_event(const SimException* exception);
+}
+#endif
 
 // virtual memory configuration
 #define PGSHIFT 12
@@ -70,6 +117,10 @@ private:
   std::map<reg_t, reg_t> alloc_cache;
   std::vector<std::pair<reg_t, reg_t >> addr_tbl;
 
+public:
+  mmu_t(simif_t* sim, endianness_t endianness, processor_t* proc);
+  ~mmu_t();
+
   mem_access_info_t generate_access_info(reg_t addr, access_type type, xlate_flags_t xlate_flags) {
     if (!proc)
       return {addr, 0, false, {}, type};
@@ -89,10 +140,7 @@ private:
     return {addr, mode, virt, xlate_flags, type};
   }
 
-public:
-  mmu_t(simif_t* sim, endianness_t endianness, processor_t* proc);
-  ~mmu_t();
-
+  /* load a value from memory */
   template<typename T>
   T ALWAYS_INLINE load(reg_t addr, xlate_flags_t xlate_flags = {}) {
     target_endian<T> res;
@@ -101,7 +149,17 @@ public:
     bool tlb_hit = tlb_load_tag[vpn % TLB_ENTRIES] == vpn;
 
     if (likely(!xlate_flags.is_special_access() && aligned && tlb_hit)) {
+#ifndef FORCE_RISCV_ENABLE
       res = *(target_endian<T>*)(tlb_data[vpn % TLB_ENTRIES].host_offset + addr);
+#else
+      reg_t size = sizeof(T);
+      reg_t paddr = tlb_data[vpn % TLB_ENTRIES].target_offset + addr;
+      T data = static_cast<T>(sim->sparse_read(paddr, sizeof(T)));
+      data = to_value_from_be(data);
+      T update_data = to_target_from_value(data);
+      update_generator_memory(nullptr != proc ? proc->id : 0xffffffffu, addr, 0, paddr, size, reinterpret_cast<const char*>(&update_data), "read");
+      return data;
+#endif
     } else {
       load_slow_path(addr, sizeof(T), (uint8_t*)&res, xlate_flags);
     }
@@ -112,32 +170,61 @@ public:
     return from_target(res);
   }
 
+#ifdef FORCE_RISCV_ENABLE
+  /* partially load: template functions that load an aligned value from memory */
+  template <typename T>
+  T ALWAYS_INLINE load_partially_initialized(reg_t addr, xlate_flags_t xlate_flags = {}) {
+    /* FIXME: throw out misaligned exception*/
+    T res;
+    load_slow_path_partially_initialized(addr, sizeof(T), (uint8_t*)&res, xlate_flags);
+    return res;
+  }
+#endif
+
+  /* load value from memory at aligned address: zero/sign extend to register width */
   template<typename T>
   T load_reserved(reg_t addr) {
     return load<T>(addr, {.lr = true});
   }
 
+  /* load value from guest memory at aligned address: zero/sign extend to register width */
   template<typename T>
   T guest_load(reg_t addr) {
     return load<T>(addr, {.forced_virt = true});
   }
 
+  /* load value from guest memory at aligned address; zero/sign extend to register width */
   template<typename T>
   T guest_load_x(reg_t addr) {
     return load<T>(addr, {.forced_virt=true, .hlvx=true});
   }
 
+  /* store a value to memory */
   template<typename T>
   void ALWAYS_INLINE store(reg_t addr, T val, xlate_flags_t xlate_flags = {}) {
     reg_t vpn = addr >> PGSHIFT;
     bool aligned = (addr & (sizeof(T) - 1)) == 0;
     bool tlb_hit = tlb_store_tag[vpn % TLB_ENTRIES] == vpn;
+#ifdef FORCE_RISCV_ENABLE
+    T data = to_target_from_value(val);
+#endif
 
     if (!xlate_flags.is_special_access() && likely(aligned && tlb_hit)) {
+#ifndef FORCE_RISCV_ENABLE
       *(target_endian<T>*)(tlb_data[vpn % TLB_ENTRIES].host_offset + addr) = to_target(val);
+#else
+      reg_t size = sizeof(T);
+      reg_t paddr = tlb_data[vpn % TLB_ENTRIES].target_offset + addr;
+      update_generator_memory(nullptr != proc ? proc->id : 0xffffffffu, addr, 0, paddr, size, reinterpret_cast<const char*>(&data), "write");
+      sim->sparse_write_with_initialization(paddr, (const uint8_t*)&data, size);
+#endif
     } else {
+#ifndef FORCE_RISCV_ENABLE
       target_endian<T> target_val = to_target(val);
       store_slow_path(addr, sizeof(T), (const uint8_t*)&target_val, xlate_flags, true, false);
+#else
+      store_slow_path(addr, sizeof(T), (const uint8_t*)&data, xlate_flags, true, false);
+#endif
     }
 
     if (unlikely(proc && proc->get_log_commits_enabled()))
@@ -219,12 +306,18 @@ public:
       check_triggers(triggers::OPERATION_STORE, base + offset, false, addr, std::nullopt);
     convert_load_traps_to_store_traps({
       const reg_t paddr = translate(generate_access_info(addr, LOAD, {}), 1);
+#ifndef FORCE_RISCV_ENABLE
       if (sim->reservable(paddr)) {
         if (tracer.interested_in_range(paddr, paddr + PGSIZE, LOAD))
           tracer.clean_invalidate(paddr, blocksz, clean, inval);
       } else {
         throw trap_store_access_fault((proc) ? proc->state.v : false, addr, 0, 0);
       }
+#else
+      /* no reservable for MMIO in cosim */
+      if (tracer.interested_in_range(paddr, paddr + PGSIZE, LOAD))
+        tracer.clean_invalidate(paddr, blocksz, clean, inval);
+#endif
     })
   }
 
@@ -240,11 +333,16 @@ public:
       store_slow_path(vaddr, size, nullptr, {}, false, true);
     }
 
+#ifndef FORCE_RISCV_ENABLE
     reg_t paddr = translate(generate_access_info(vaddr, STORE, {}), 1);
     if (sim->reservable(paddr))
       return load_reservation_address == paddr;
     else
       throw trap_store_access_fault((proc) ? proc->state.v : false, vaddr, 0, 0);
+#else
+    reg_t paddr = translate(generate_access_info(vaddr, STORE, {}), 1);
+    return load_reservation_address == paddr;
+#endif
   }
 
   template<typename T>
@@ -279,6 +377,7 @@ public:
       throw *matched_trigger;
 
     auto tlb_entry = translate_insn_addr(addr);
+#ifndef FORCE_RISCV_ENABLE
     insn_bits_t insn = from_le(*(uint16_t*)(tlb_entry.host_offset + addr));
     int length = insn_length(insn);
 
@@ -286,6 +385,7 @@ public:
       insn |= (insn_bits_t)from_le(*(const uint16_t*)translate_insn_addr_to_host(addr + 2)) << 16;
     } else if (length == 2) {
       // entire instruction already fetched
+      insn = (int16_t)insn;
     } else if (length == 6) {
       insn |= (insn_bits_t)from_le(*(const uint16_t*)translate_insn_addr_to_host(addr + 2)) << 16;
       insn |= (insn_bits_t)from_le(*(const uint16_t*)translate_insn_addr_to_host(addr + 4)) << 32;
@@ -295,6 +395,70 @@ public:
       insn |= (insn_bits_t)from_le(*(const uint16_t*)translate_insn_addr_to_host(addr + 4)) << 32;
       insn |= (insn_bits_t)from_le(*(const uint16_t*)translate_insn_addr_to_host(addr + 6)) << 48;
     }
+#else
+    uint16_t insn_buf = 0;
+    uint64_t load_buff = 0ull;
+    uint64_t muh_paddr = tlb_entry.target_offset + addr;
+    size_t len = sizeof(uint16_t);
+    load_buff = sim->sparse_read(muh_paddr, len);
+    LOG_PRINT_DEBUG("[mmu_t::%s] addr<%lx,%ld>=%lx\n", __func__, muh_paddr, len, load_buff);
+    reinterpret_cast<uint8_t*>(&insn_buf)[0] = reinterpret_cast<uint8_t*>(&load_buff)[1];
+    reinterpret_cast<uint8_t*>(&insn_buf)[1] = reinterpret_cast<uint8_t*>(&load_buff)[0];
+
+    insn_bits_t insn = from_le(insn_buf);
+    int length = insn_length(insn);
+
+    if (likely(length == 4)) {
+      load_buff = sim->sparse_read(muh_paddr + 2, len);
+      LOG_PRINT_DEBUG("[mmu_t::%s] addr<%lx,%ld>=%lx\n", __func__, muh_paddr+2, len, load_buff);
+      reinterpret_cast<uint8_t*>(&insn_buf)[0] = reinterpret_cast<uint8_t*>(&load_buff)[1];
+      reinterpret_cast<uint8_t*>(&insn_buf)[1] = reinterpret_cast<uint8_t*>(&load_buff)[0];
+      insn_buf = from_le(insn_buf);
+      insn |= (insn_bits_t)(const int16_t)insn_buf << 16;
+    } else if (length == 2) {
+      // entire instruction already fetched
+      insn = (insn_bits_t)(int16_t)insn;
+    } else if (length == 6) {
+      load_buff = sim->sparse_read(muh_paddr + 4, len);
+      LOG_PRINT_DEBUG("[mmu_t::%s] addr<%lx,%ld>=%lx\n", __func__, muh_paddr+4, len, load_buff);
+      reinterpret_cast<uint8_t*>(&insn_buf)[0] = reinterpret_cast<uint8_t*>(&load_buff)[1];
+      reinterpret_cast<uint8_t*>(&insn_buf)[1] = reinterpret_cast<uint8_t*>(&load_buff)[0];
+      insn_buf = from_le(insn_buf);
+      insn |= (insn_bits_t)(const int16_t)insn_buf << 32;
+
+      load_buff = sim->sparse_read(muh_paddr + 2, len);
+      LOG_PRINT_DEBUG("[mmu_t::%s] addr<%lx,%ld>=%lx\n", __func__, muh_paddr+2, len, load_buff);
+      reinterpret_cast<uint8_t*>(&insn_buf)[0] = reinterpret_cast<uint8_t*>(&load_buff)[1];
+      reinterpret_cast<uint8_t*>(&insn_buf)[1] = reinterpret_cast<uint8_t*>(&load_buff)[0];
+      insn_buf = from_le(insn_buf);
+      insn |= (insn_bits_t)(const uint16_t)insn_buf << 16;
+    } else {
+      static_assert(sizeof(insn_bits_t) == 8, "insn_bits_t must be uint64_t");
+      load_buff = sim->sparse_read(muh_paddr + 6, len);
+      LOG_PRINT_DEBUG("[mmu_t::%s] addr<%lx,%ld>=%lx\n", __func__, muh_paddr+6, len, load_buff);
+      reinterpret_cast<uint8_t*>(&insn_buf)[0] = reinterpret_cast<uint8_t*>(&load_buff)[1];
+      reinterpret_cast<uint8_t*>(&insn_buf)[1] = reinterpret_cast<uint8_t*>(&load_buff)[0];
+      insn_buf = from_le(insn_buf);
+      insn |= (insn_bits_t)(const int16_t)insn_buf << 48;
+
+      load_buff = sim->sparse_read(muh_paddr + 4, len);
+      LOG_PRINT_DEBUG("[mmu_t::%s] addr<%lx,%ld>=%lx\n", __func__, muh_paddr+4, len, load_buff);
+      reinterpret_cast<uint8_t*>(&insn_buf)[0] = reinterpret_cast<uint8_t*>(&load_buff)[1];
+      reinterpret_cast<uint8_t*>(&insn_buf)[1] = reinterpret_cast<uint8_t*>(&load_buff)[0];
+      insn_buf = from_le(insn_buf);
+      insn |= (insn_bits_t)(const uint16_t)insn_buf << 32;
+
+      load_buff = sim->sparse_read(muh_paddr + 2, len);
+      LOG_PRINT_DEBUG("[mmu_t::%s] addr<%lx,%ld>=%lx\n", __func__, muh_paddr+2, len, load_buff);
+      reinterpret_cast<uint8_t*>(&insn_buf)[0] = reinterpret_cast<uint8_t*>(&load_buff)[1];
+      reinterpret_cast<uint8_t*>(&insn_buf)[1] = reinterpret_cast<uint8_t*>(&load_buff)[0];
+      insn_buf = from_le(insn_buf);
+      insn |= (insn_bits_t)(const uint16_t)insn_buf << 16;
+    }
+#endif
+
+    LOG_PRINT_DEBUG("[mmu_t::%s] insn=%lx, length=%d\n", __func__, insn, length);
+    insn = insn & 0xffffffff;
 
     insn_fetch_t fetch = {proc->decode_insn(insn), insn};
     entry->tag = addr;
@@ -348,6 +512,44 @@ public:
     return target_big_endian? target_endian<T>::to_be(n) : target_endian<T>::to_le(n);
   }
 
+  template<typename T> inline T to_target_from_value(T n) const
+  {
+    return target_big_endian? to_be(n) : to_le(n);
+  }
+
+  template<typename T> inline T to_value_from_be(T n) const
+  {
+    return target_big_endian? n : from_be(n);
+  }
+
+  reg_t translate(mem_access_info_t access_info, reg_t len);
+
+#ifdef FORCE_RISCV_ENABLE
+  // Translate a VA to a PA by performing a page table walk but don't set any state bits
+  // and instead of throwing exceptions, return codes are used.
+  //
+  // Does a pmp check on the recovered PA.
+  //
+  //    returns:
+  //        0 - walk was successful
+  //        1 - PMP problem with PA after address translation somehow
+  //        2 - access exception while trying to check pmp status of page table entry PA
+  //        3 - walk was unsuccessful and access type was FETCH
+  //        4 - walk was unsuccessful and access type was LOAD
+  //        5 - walk was unsuccessful and access type was STORE
+  //        6 - walk was unsuccessful and access type was not any of the above
+  //        7 - walk would have been successful had paddr_ptr not been a null pointer
+  #define WALK_SUCCESSFUL 0
+  #define WALK_EXCEPTION_PA_OF_PMP 1
+  #define WALK_EXCEPTION_PTE_PA_OF_PMP 2
+  #define WALK_UNSUCCESSFUL_FETCH 3
+  #define WALK_UNSUCCESSFUL_LOAD 4
+  #define WALK_UNSUCCESSFUL_STORE 5
+  #define WALK_UNSUCCESSFUL_UNCLASSIFY 6
+  #define WALK_UNSUCCESSFUL_BAD_PADDR_PTR 7
+  int translate_api(reg_t addr, reg_t* paddr, uint64_t* pmp_info, reg_t len, access_type type, uint32_t xlate_flags);
+#endif
+
   void set_cache_blocksz(reg_t size)
   {
     blocksz = size;
@@ -384,22 +586,49 @@ private:
   // perform a page table walk for a given VA; set referenced/dirty bits
   reg_t walk(mem_access_info_t access_info);
 
+#ifdef FORCE_RISCV_ENABLE
+  // perform a page table walk but don't set any state bits
+  // and instead of throwing exceptions, return codes are used:
+  //
+  //    returns:
+  //        0 - walk was successful
+  //        1 - access exception while check pmp of PA
+  //        2 - access exception while trying to check pmp status of page table entry PA
+  //        3 - walk was unsuccessful and access type was FETCH
+  //        4 - walk was unsuccessful and access type was LOAD
+  //        5 - walk was unsuccessful and access type was STORE
+  //        6 - walk was unsuccessful and access type was not any of the above
+  //        7 - walk would have been successful had paddr_ptr not been a null pointer
+  int walk_api(mem_access_info_t access_info, reg_t* paddr_ptr);
+#endif
+
   // handle uncommon cases: TLB misses, page faults, MMIO
   tlb_entry_t fetch_slow_path(reg_t addr);
   void load_slow_path(reg_t addr, reg_t len, uint8_t* bytes, xlate_flags_t xlate_flags);
   void load_slow_path_intrapage(reg_t len, uint8_t* bytes, mem_access_info_t access_info);
   void store_slow_path(reg_t addr, reg_t len, const uint8_t* bytes, xlate_flags_t xlate_flags, bool actually_store, bool require_alignment);
   void store_slow_path_intrapage(reg_t len, const uint8_t* bytes, mem_access_info_t access_info, bool actually_store);
+#ifdef FORCE_RISCV_ENABLE
+  /* partially */
+  void load_slow_path_partially_initialized(reg_t addr, reg_t len, uint8_t* bytes, xlate_flags_t xlate_flags);
+  void load_slow_path_partially_initialized_intrapage(reg_t len, uint8_t* bytes, mem_access_info_t access_info);
+  void initialize_slow_path(reg_t addr, reg_t len, const uint8_t* bytes, xlate_flags_t xlate_flags);
+#endif
+// #ifndef FORCE_RISCV_ENABLE
+  /* MMIO is not supported from Force Riscv */
   bool mmio_fetch(reg_t paddr, size_t len, uint8_t* bytes);
   bool mmio_load(reg_t paddr, size_t len, uint8_t* bytes);
   bool mmio_store(reg_t paddr, size_t len, const uint8_t* bytes);
   bool mmio(reg_t paddr, size_t len, uint8_t* bytes, access_type type);
   bool mmio_ok(reg_t paddr, access_type type);
+// #endif
   void check_triggers(triggers::operation_t operation, reg_t address, bool virt, std::optional<reg_t> data = std::nullopt) {
     check_triggers(operation, address, virt, address, data);
   }
   void check_triggers(triggers::operation_t operation, reg_t address, bool virt, reg_t tval, std::optional<reg_t> data);
-  reg_t translate(mem_access_info_t access_info, reg_t len);
+// #ifndef FORCE_RISCV_ENABLE
+//   reg_t translate(mem_access_info_t access_info, reg_t len);
+// #endif
 
   reg_t pte_load(reg_t pte_paddr, reg_t addr, bool virt, access_type trap_type, size_t ptesize) {
     if (ptesize == 4)
@@ -456,9 +685,11 @@ private:
     return fetch_slow_path(addr);
   }
 
+#ifndef FORCE_RISCV_ENABLE
   inline const uint16_t* translate_insn_addr_to_host(reg_t addr) {
     return (uint16_t*)(translate_insn_addr(addr).host_offset + addr);
   }
+#endif
 
   inline bool in_mprv()
   {
@@ -470,6 +701,9 @@ private:
 
   reg_t pmp_homogeneous(reg_t addr, reg_t len);
   bool pmp_ok(reg_t addr, reg_t len, access_type type, reg_t mode);
+#ifdef FORCE_RISCV_ENABLE /* pmp address, pmp config */
+  bool pmp_ok_api(reg_t addr, reg_t* pmpaddr_ptr, uint8_t* pmpcfg_ptr, reg_t len, access_type type, reg_t mode);
+#endif
 
 #ifdef RISCV_ENABLE_DUAL_ENDIAN
   bool target_big_endian;

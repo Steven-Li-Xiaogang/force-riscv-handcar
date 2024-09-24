@@ -20,12 +20,14 @@ class htif_t : public chunked_memif_t
   htif_t(const std::vector<std::string>& args);
   virtual ~htif_t();
 
+#ifndef FORCE_RISCV_ENABLE
   virtual void start();
   virtual void stop();
 
   int run();
   bool done();
   int exit_code();
+#endif
   void set_expected_xlen(unsigned int m) { expected_xlen = m; }
   virtual memif_t& memif() { return mem; }
 
@@ -45,11 +47,14 @@ class htif_t : public chunked_memif_t
     return endianness == endianness_big? target_endian<T>::to_be(n) : target_endian<T>::to_le(n);
   }
 
+#ifndef FORCE_RISCV_ENABLE
   addr_t get_tohost_addr() { return tohost_addr; }
   addr_t get_fromhost_addr() { return fromhost_addr; }
+#endif
 
  protected:
-  virtual void reset() = 0;
+  // move to simif_t
+  // virtual void reset() = 0;
 
   virtual void read_chunk(addr_t taddr, size_t len, void* dst) = 0;
   virtual void write_chunk(addr_t taddr, size_t len, const void* src) = 0;
@@ -58,9 +63,13 @@ class htif_t : public chunked_memif_t
   virtual size_t chunk_align() = 0;
   virtual size_t chunk_max_size() = 0;
 
+  virtual endianness_t get_target_endianness() const = 0;
+
   virtual std::map<std::string, uint64_t> load_payload(const std::string& payload, reg_t* entry);
   virtual void load_program();
+#ifndef FORCE_RISCV_ENABLE
   virtual void idle() {}
+#endif
 
   const std::vector<std::string>& host_args() { return hargs; }
   const std::vector<std::string>& target_args() { return targs; }
@@ -84,6 +93,7 @@ class htif_t : public chunked_memif_t
   bool writezeros;
   std::vector<std::string> hargs;
   std::vector<std::string> targs;
+#ifndef FORCE_RISCV_ENABLE
   std::string sig_file;
   unsigned int line_size;
   addr_t sig_addr; // torture
@@ -92,10 +102,13 @@ class htif_t : public chunked_memif_t
   addr_t fromhost_addr;
   int exitcode;
   bool stopped;
+#endif
 
   device_list_t device_list;
+#ifndef FORCE_RISCV_ENABLE
   syscall_t syscall_proxy;
   bcd_t bcd;
+#endif
   std::vector<device_t*> dynamic_devices;
   std::vector<std::string> payloads;
 
@@ -130,6 +143,8 @@ class htif_t : public chunked_memif_t
        +payload=PATH\n\
       --symbol-elf=PATH    Populate the symbol table with the ELF file at PATH\n\
        +symbol-elf=PATH\n\
+      --no_elf\n\
+       +no_elf\n\
 \n\
 HOST OPTIONS (currently unsupported)\n\
       --disk=DISK          Add DISK device. Use a ramdisk since this isn't\n\

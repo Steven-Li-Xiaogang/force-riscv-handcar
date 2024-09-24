@@ -30,8 +30,9 @@ class canonical_termios_t
   bool restore_tios;
 };
 
-static canonical_termios_t tios; // exit() will clean up for us
+// static canonical_termios_t tios; // exit() will clean up for us
 
+// read from stdin
 int canonical_terminal_t::read()
 {
   struct pollfd pfd;
@@ -46,6 +47,7 @@ int canonical_terminal_t::read()
   return ret <= 0 ? -1 : ch;
 }
 
+// write to stdout
 void canonical_terminal_t::write(char ch)
 {
   if (::write(1, &ch, 1) != 1)

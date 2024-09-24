@@ -6,6 +6,7 @@
 #include "disasm.h"
 #include "decode_macros.h"
 #include <cassert>
+#include "log_print.h"
 
 static void commit_log_reset(processor_t* p)
 {
@@ -22,31 +23,31 @@ static void commit_log_stash_privilege(processor_t* p)
   state->last_inst_flen = p->get_flen();
 }
 
-static void commit_log_print_value(FILE *log_file, int width, const void *data)
+static void commit_log_print_value(FILE *commit_log_file, int width, const void *data)
 {
-  assert(log_file);
+  assert(commit_log_file);
 
   switch (width) {
     case 8:
-      fprintf(log_file, "0x%02" PRIx8, *(const uint8_t *)data);
+      fprintf(commit_log_file, "0x%02" PRIx8, *(const uint8_t *)data);
       break;
     case 16:
-      fprintf(log_file, "0x%04" PRIx16, *(const uint16_t *)data);
+      fprintf(commit_log_file, "0x%04" PRIx16, *(const uint16_t *)data);
       break;
     case 32:
-      fprintf(log_file, "0x%08" PRIx32, *(const uint32_t *)data);
+      fprintf(commit_log_file, "0x%08" PRIx32, *(const uint32_t *)data);
       break;
     case 64:
-      fprintf(log_file, "0x%016" PRIx64, *(const uint64_t *)data);
+      fprintf(commit_log_file, "0x%016" PRIx64, *(const uint64_t *)data);
       break;
     default:
       // max lengh of vector
       if (((width - 1) & width) == 0) {
         const uint64_t *arr = (const uint64_t *)data;
 
-        fprintf(log_file, "0x");
+        fprintf(commit_log_file, "0x");
         for (int idx = width / 64 - 1; idx >= 0; --idx) {
-          fprintf(log_file, "%016" PRIx64, arr[idx]);
+          fprintf(commit_log_file, "%016" PRIx64, arr[idx]);
         }
       } else {
         abort();
@@ -55,14 +56,10 @@ static void commit_log_print_value(FILE *log_file, int width, const void *data)
   }
 }
 
-static void commit_log_print_value(FILE *log_file, int width, uint64_t val)
-{
-  commit_log_print_value(log_file, width, &val);
-}
-
 static void commit_log_print_insn(processor_t *p, reg_t pc, insn_t insn)
 {
-  FILE *log_file = p->get_log_file();
+  FILE *commit_log_file = p->get_commit_log_file();
+  insn_bits_t insnbits = insn.bits();
 
   auto& reg = p->get_state()->log_reg_write;
   auto& load = p->get_state()->log_mem_read;
@@ -72,13 +69,13 @@ static void commit_log_print_insn(processor_t *p, reg_t pc, insn_t insn)
   int flen = p->get_state()->last_inst_flen;
 
   // print core id on all lines so it is easy to grep
-  fprintf(log_file, "core%4" PRId32 ": ", p->get_id());
+  fprintf(commit_log_file, "core%4" PRId32 ": ", p->get_id());
 
-  fprintf(log_file, "%1d ", priv);
-  commit_log_print_value(log_file, xlen, pc);
-  fprintf(log_file, " (");
-  commit_log_print_value(log_file, insn.length() * 8, insn.bits());
-  fprintf(log_file, ")");
+  fprintf(commit_log_file, "%1d ", priv);
+  commit_log_print_value(commit_log_file, xlen, &pc);
+  fprintf(commit_log_file, " (");
+  commit_log_print_value(commit_log_file, insn.length() * 8, &insnbits);
+  fprintf(commit_log_file, ")");
   bool show_vec = false;
 
   for (auto item : reg) {
@@ -117,7 +114,7 @@ static void commit_log_print_insn(processor_t *p, reg_t pc, insn_t insn)
     }
 
     if (!show_vec && (is_vreg || is_vec)) {
-        fprintf(log_file, " e%ld %s%ld l%ld",
+        fprintf(commit_log_file, " e%ld %s%ld l%ld",
                 (long)p->VU.vsew,
                 p->VU.vflmul < 1 ? "mf" : "m",
                 p->VU.vflmul < 1 ? (long)(1 / p->VU.vflmul) : (long)p->VU.vflmul,
@@ -127,28 +124,32 @@ static void commit_log_print_insn(processor_t *p, reg_t pc, insn_t insn)
 
     if (!is_vec) {
       if (prefix == 'c')
-        fprintf(log_file, " c%d_%s ", rd, csr_name(rd));
+        fprintf(commit_log_file, " c%d_%s ", rd, csr_name(rd));
       else
-        fprintf(log_file, " %c%-2d ", prefix, rd);
+        fprintf(commit_log_file, " %c%-2d ", prefix, rd);
+
       if (is_vreg)
-        commit_log_print_value(log_file, size, &p->VU.elt<uint8_t>(rd, 0));
+        commit_log_print_value(commit_log_file, size, &p->VU.elt<uint8_t>(rd, 0));
       else
-        commit_log_print_value(log_file, size, item.second.v);
+        commit_log_print_value(commit_log_file, size, &item.second.v);
     }
   }
 
   for (auto item : load) {
-    fprintf(log_file, " mem ");
-    commit_log_print_value(log_file, xlen, std::get<0>(item));
+    fprintf(commit_log_file, "\n\t\tload: ");
+    fprintf(commit_log_file, " mem ");
+    commit_log_print_value(commit_log_file, xlen, &std::get<0>(item));
   }
 
   for (auto item : store) {
-    fprintf(log_file, " mem ");
-    commit_log_print_value(log_file, xlen, std::get<0>(item));
-    fprintf(log_file, " ");
-    commit_log_print_value(log_file, std::get<2>(item) << 3, std::get<1>(item));
+    fprintf(commit_log_file, "\n\t\tstore: ");
+    fprintf(commit_log_file, " mem ");
+    commit_log_print_value(commit_log_file, xlen, &std::get<0>(item));
+
+    fprintf(commit_log_file, " ");
+    commit_log_print_value(commit_log_file, std::get<2>(item) << 3, &std::get<1>(item));
   }
-  fprintf(log_file, "\n");
+  fprintf(commit_log_file, "\n");
 }
 
 inline void processor_t::update_histogram(reg_t pc)
@@ -172,7 +173,14 @@ static inline reg_t execute_insn_logged(processor_t* p, reg_t pc, insn_fetch_t f
   reg_t npc;
 
   try {
+    extern reg_t fast_rv64i_vfncvt_x_f_w(processor_t* p, insn_t insn, reg_t pc);
+    // LOG_PRINT_DEBUG("instruction %lx %lx %p %p execute before\n",
+    //         fetch.insn.bits(), pc, fetch.func, fast_rv64i_vfncvt_x_f_w);
+    LOG_PRINT_DEBUG("instruction: %lx pc: %lx execute before\n",
+            fetch.insn.bits(), pc);
+
     npc = fetch.func(p, fetch.insn, pc);
+    LOG_PRINT_DEBUG("instruction execute after\n");
     if (npc != PC_SERIALIZE_BEFORE) {
       if (p->get_log_commits_enabled()) {
         commit_log_print_insn(p, pc, fetch.insn);
@@ -247,7 +255,11 @@ void processor_t::step(size_t n)
     {
       take_pending_interrupt();
 
+#ifndef FORCE_RISCV_ENABLE
       if (unlikely(slow_path()))
+#else
+      if (true)
+#endif
       {
         // Main simulation loop, slow path.
         while (instret < n)
@@ -280,10 +292,15 @@ void processor_t::step(size_t n)
 
           in_wfi = false;
           insn_fetch_t fetch = mmu->load_insn(pc);
+          LOG_PRINT_ERROR("[processor_t::%s] insn=%lx, pc=%lx\n", __func__, fetch.insn.bits(), pc);
           execute_insn_prehook(fetch.insn);
+#ifndef FORCE_RISCV_ENABLE
           if (debug && !state.serialized)
             disasm(fetch.insn);
+#endif
           pc = execute_insn_logged(this, pc, fetch);
+          // LOG_PRINT_ERROR("[processor_t::%s] slow done pc=%lx\n", __func__, pc);
+          LOG_PRINT_ERROR("[processor_t::%s] done\n", __func__);
           advance_pc();
         }
       }
@@ -292,8 +309,11 @@ void processor_t::step(size_t n)
         // Main simulation loop, fast path.
         for (auto ic_entry = _mmu->access_icache(pc); ; ) {
           auto fetch = ic_entry->data;
+          LOG_PRINT_ERROR("[processor_t::%s] fast insn=%lx, pc=%lx\n", __func__, fetch.insn.bits(), pc);
           execute_insn_prehook(fetch.insn);
           pc = execute_insn_fast(this, pc, fetch);
+          // LOG_PRINT_ERROR("[processor_t::%s] fast done pc=%lx\n", __func__, pc);
+          LOG_PRINT_ERROR("[processor_t::%s] fast done\n", __func__);
           ic_entry = ic_entry->next;
           if (unlikely(ic_entry->tag != pc))
             break;

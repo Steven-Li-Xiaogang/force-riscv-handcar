@@ -18,6 +18,10 @@
 #include "../fesvr/memif.h"
 #include "vector_unit.h"
 
+#ifdef FORCE_RISCV_ENABLE
+#include <iostream>
+#endif
+
 #define N_HPMCOUNTERS 29
 
 class processor_t;
@@ -79,6 +83,7 @@ struct state_t
   reg_t pc;
   regfile_t<reg_t, NXPR, true> XPR;
   regfile_t<freg_t, NFPR, false> FPR;
+  size_t pid; // processor id that contains state registers
 
   // control and status registers
   std::unordered_map<reg_t, csr_t_p> csrmap;
@@ -199,8 +204,14 @@ class processor_t : public abstract_device_t
 public:
   processor_t(const isa_parser_t *isa, const cfg_t* cfg,
               simif_t* sim, uint32_t id, bool halt_on_reset,
-              FILE *log_file, std::ostream& sout_); // because of command line option --log and -s we need both
+              FILE *commit_log_file, std::ostream& sout_); // because of command line option --log and -s we need both
   ~processor_t();
+
+#ifdef FORCE_RISCV_ENABLE
+  void reset_pc_api(reg_t entry);
+  bool set_pc_api(const std::string& name, const uint8_t* bytes, size_t len); //len advertises the size of the buffer
+  bool get_pc_api(uint8_t* bytes, const std::string& name, size_t len); //len advertises the size of the buffer
+#endif
 
   const isa_parser_t &get_isa() { return *isa; }
   const cfg_t &get_cfg() { return *cfg; }
@@ -212,9 +223,15 @@ public:
   void reset();
   void step(size_t n); // run for n cycles
   void put_csr(int which, reg_t val);
+#ifdef FORCE_RISCV_ENABLE
+  void put_csr_api(int which, reg_t val);
+#endif
   uint32_t get_id() const { return id; }
   reg_t get_csr(int which, insn_t insn, bool write, bool peek = 0);
   reg_t get_csr(int which) { return get_csr(which, insn_t(0), false, true); }
+#ifdef FORCE_RISCV_ENABLE
+  reg_t get_csr_api(int which);
+#endif
   mmu_t* get_mmu() { return mmu; }
   state_t* get_state() { return &state; }
   unsigned get_xlen() const { return xlen; }
@@ -278,10 +295,14 @@ public:
   reg_t legalize_privilege(reg_t);
   void set_privilege(reg_t, bool);
   const char* get_privilege_string();
+#ifdef FORCE_RISCV_ENABLE
+  void set_privilege_api(reg_t, bool);
+  void get_privilege_api(reg_t* prv);
+#endif
   void update_histogram(reg_t pc);
   const disassembler_t* get_disassembler() { return disassembler; }
 
-  FILE *get_log_file() { return log_file; }
+  FILE *get_commit_log_file() { return commit_log_file; }
 
   void register_base_insn(insn_desc_t insn) {
     register_insn(insn, false /* is_custom */);
@@ -332,7 +353,7 @@ private:
   unsigned xlen;
   bool histogram_enabled;
   bool log_commits_enabled;
-  FILE *log_file;
+  FILE *commit_log_file;
   std::ostream sout_; // needed for socket command interface -s, also used for -d and -l, but not for --log
   bool halt_on_reset;
   bool in_wfi;
@@ -364,8 +385,10 @@ private:
   void debug_output_log(std::stringstream *s); // either output to interactive user or write to log file
 
   friend class mmu_t;
+#ifndef FORCE_RISCV_ENABLE
   friend class clint_t;
   friend class plic_t;
+#endif
   friend class extension_t;
 
   void parse_varch_string(const char*);

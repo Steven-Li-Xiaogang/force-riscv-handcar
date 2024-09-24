@@ -31,6 +31,8 @@ isa_parser_t::isa_parser_t(const char* str, const char *priv)
   isa_string = strtolower(str);
   const char* all_subsets = "mafdqcpvh";
 
+  printf("isa_parser_t str=%s\n", str);
+
   if (isa_string.compare(0, 4, "rv32") == 0)
     max_xlen = 32;
   else if (isa_string.compare(0, 4, "rv64") == 0)

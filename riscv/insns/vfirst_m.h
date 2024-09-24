@@ -7,8 +7,11 @@ require(P.VU.vstart->read() == 0);
 reg_t pos = -1;
 for (reg_t i=P.VU.vstart->read(); i < vl; ++i) {
   VI_LOOP_ELEMENT_SKIP()
-
+#ifndef FORCE_RISCV_ENABLE
   bool vs2_lsb = ((P.VU.elt<uint64_t>(rs2_num, midx ) >> mpos) & 0x1) == 1;
+#else
+  bool vs2_lsb = ((P.VU.elt_do_callback<uint64_t>(rs2_num, midx ) >> mpos) & 0x1) == 1;
+#endif
   if (vs2_lsb) {
     pos = i;
     break;

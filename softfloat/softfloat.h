@@ -54,8 +54,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define THREAD_LOCAL
 #endif
 
+#ifndef FORCE_RISCV_ENABLE /* use c++ wrapper in force risc-v */
 #ifdef __cplusplus
 extern "C" {
+#endif
 #endif
 
 /*----------------------------------------------------------------------------
@@ -396,8 +398,10 @@ bool f128M_le_quiet( const float128_t *, const float128_t * );
 bool f128M_lt_quiet( const float128_t *, const float128_t * );
 bool f128M_isSignalingNaN( const float128_t * );
 
+#ifndef FORCE_RISCV_ENABLE /* use c++ wrapper in force risc-v */
 #ifdef __cplusplus
 }
+#endif
 #endif
 
 #endif

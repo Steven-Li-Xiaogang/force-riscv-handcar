@@ -9,6 +9,7 @@ for (reg_t i=P.VU.vstart->read(); i<vl; ++i) {
   const int midx = i / 32;
   const int mpos = i % 32;
 
+#ifndef FORCE_RISCV_ENABLE
   bool vs2_lsb = ((P.VU.elt<uint32_t>(rs2_num, midx ) >> mpos) & 0x1) == 1;
   if (insn.v_vm() == 1) {
     popcount += vs2_lsb;
@@ -16,5 +17,16 @@ for (reg_t i=P.VU.vstart->read(); i<vl; ++i) {
     bool do_mask = (P.VU.elt<uint32_t>(0, midx) >> mpos) & 0x1;
     popcount += (vs2_lsb && do_mask);
   }
+
+#else
+  bool vs2_lsb = ((P.VU.elt_do_callback<uint32_t>(rs2_num, midx ) >> mpos) & 0x1) == 1;
+  if (insn.v_vm() == 1) {
+    popcount += vs2_lsb;
+  } else {
+    bool do_mask = (P.VU.elt_do_callback<uint32_t>(0, midx) >> mpos) & 0x1;
+    popcount += (vs2_lsb && do_mask);
+  }
+
+#endif
 }
 WRITE_RD(popcount);

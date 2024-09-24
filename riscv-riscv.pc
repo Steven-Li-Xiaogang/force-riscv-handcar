@@ -1,0 +1,11 @@
+prefix=/home/lixiaogang/simulator/riscv-isa-sim-master/output
+exec_prefix=/home/lixiaogang/simulator/riscv-isa-sim-master/output
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: riscv-riscv
+Description: RISC-V
+Version: git
+Libs: -Wl,-rpath,${libdir} -L${libdir} -lriscv
+Cflags: -I${includedir}
+URL: http://riscv.org/download.html#tab_spike

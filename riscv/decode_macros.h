@@ -79,9 +79,18 @@
 #define FRS3_H READ_FREG_H(insn.rs3())
 #define FRS3_F READ_FREG_F(insn.rs3())
 #define FRS3_D READ_FREG_D(insn.rs3())
+#ifndef FORCE_RISCV_ENABLE
 #define dirty_fp_state  STATE.sstatus->dirty(SSTATUS_FS)
 #define dirty_ext_state STATE.sstatus->dirty(SSTATUS_XS)
 #define dirty_vs_state  STATE.sstatus->dirty(SSTATUS_VS)
+#else
+#define dirty_fp_state  (STATE.sstatus->dirty(SSTATUS_FS), \
+                          update_generator_register(STATE.pid, "mstatus", STATE.mstatus->read(), 0xffffffffull, "write"))
+#define dirty_ext_state (STATE.sstatus->dirty(SSTATUS_XS), \
+                          update_generator_register(STATE.pid, "mstatus", STATE.mstatus->read(), 0xffffffffull, "write"))
+#define dirty_vs_state  (STATE.sstatus->dirty(SSTATUS_VS), \
+                          update_generator_register(STATE.pid, "mstatus", STATE.mstatus->read(), 0xffffffffull, "write"))
+#endif
 #define DO_WRITE_FREG(reg, value) (STATE.FPR.write(reg, value), dirty_fp_state)
 #define WRITE_FRD(value) WRITE_FREG(insn.rd(), value)
 #define WRITE_FRD_H(value) \
@@ -141,6 +150,7 @@ static inline bool is_aligned(const unsigned val, const unsigned pos)
 #define require_fp          STATE.fflags->verify_permissions(insn, false)
 #define require_accelerator require(STATE.sstatus->enabled(SSTATUS_XS))
 #define require_vector_vs   require(STATE.sstatus->enabled(SSTATUS_VS))
+#ifndef FORCE_RISCV_ENABLE
 #define require_vector(alu) \
   do { \
     require_vector_vs; \
@@ -151,6 +161,19 @@ static inline bool is_aligned(const unsigned val, const unsigned pos)
     WRITE_VSTATUS; \
     dirty_vs_state; \
   } while (0);
+#else // assert read length with max length
+#define require_vector(alu) \
+  do { \
+    require_vector_vs; \
+    require_extension('V'); \
+    require(!P.VU.vill); \
+    assert(P.VU.vl->read() <= P.VU.vlmax); \
+    if (alu && !P.VU.vstart_alu) \
+      require(P.VU.vstart->read() == 0); \
+    WRITE_VSTATUS; \
+    dirty_vs_state; \
+  } while (0);
+#endif
 #define require_vector_novtype(is_log) \
   do { \
     require_vector_vs; \
@@ -186,10 +209,19 @@ static inline bool is_aligned(const unsigned val, const unsigned pos)
     } \
   } while (0);
 
+#ifndef FORCE_RISCV_ENABLE
 #define set_fp_exceptions ({ if (softfloat_exceptionFlags) { \
                                STATE.fflags->write(STATE.fflags->read() | softfloat_exceptionFlags); \
                              } \
                              softfloat_exceptionFlags = 0; })
+#else // notify with value of "fcsr"
+#define set_fp_exceptions ({ if (softfloat_exceptionFlags) { \
+                               STATE.fflags->write(STATE.fflags->read() | softfloat_exceptionFlags); \
+                               update_generator_register(STATE.pid, \
+                               "fcsr", P.get_csr_api(CSR_FCSR), 0xffffffffffffffffull, "write"); \
+                             } \
+                             softfloat_exceptionFlags = 0; })
+#endif
 
 #define sext32(x) ((sreg_t)(int32_t)(x))
 #define zext32(x) ((reg_t)(uint32_t)(x))

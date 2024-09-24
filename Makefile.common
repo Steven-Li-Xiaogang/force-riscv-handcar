@@ -1,0 +1,65 @@
+#
+# Copyright (C) [2020] Futurewei Technologies, Inc.
+#
+# FORCE-RISCV is licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR
+# FIT FOR A PARTICULAR PURPOSE.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+ifndef FORCE_CC
+$(error !!! Please make sure FORCE_CC environment variable is pointing to your C++ compiler !!!)
+else
+  CXX := $(FORCE_CC)
+  CC := $(FORCE_CC)
+endif
+
+ifndef FORCE_PYTHON_VER
+$(error !!! Please specify Python version to use !!!)
+else
+  PYTHON_VER := $(FORCE_PYTHON_VER)
+endif
+
+ifndef FORCE_PYTHON_INC
+$(error !!! Please specify Python include directory path !!!)
+else
+  PYTHON_INC := $(FORCE_PYTHON_INC)
+endif
+
+ifndef FORCE_PYTHON_LIB
+$(error !!! Please specify Python library directory path !!!)
+else
+  PYTHON_LIB := $(FORCE_PYTHON_LIB)
+endif
+
+OPTIMIZATION = -Os
+
+OBJ_DIR = make_area/obj
+DEP_DIR = make_area/dep
+
+# Check if python3.?m library exist
+TEST_PYTHON_LIB=$(PYTHON_LIB)/libpython$(PYTHON_VER)m.so
+ifneq ("$(wildcard $(TEST_PYTHON_LIB))","")
+    PYTHON_LIB_TYPE=m
+else
+    PYTHON_LIB_TYPE=
+endif
+
+# g++ is failing to see through Spike's nested combination of macros and includes in riscv/processor.cc
+CFLAGS = -Wall -Wno-unused -std=c++2a -gdwarf-3 -m64 -g $(OPTIMIZATION) -DFORCE_RISCV_ENABLE
+LFLAGS = -lpthread -static-libstdc++ -static-libgcc -L$(PYTHON_LIB) -lpython$(PYTHON_VER)$(PYTHON_LIB_TYPE) -lutil -ldl -rdynamic
+
+# .cc files
+ALL_OBJS := $(ALL_SRCS:%.cc=$(OBJ_DIR)/%.o)
+ALL_DEPS := $(ALL_SRCS:%.cc=$(DEP_DIR)/%.d)
+# .c files
+ALL_C_OBJS := $(ALL_C_SRCS:%.c=$(OBJ_DIR)/%.o)
+ALL_C_DEPS := $(ALL_C_SRCS:%.c=$(DEP_DIR)/%.d)
+

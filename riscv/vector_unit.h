@@ -72,17 +72,29 @@ struct type_sew_t<64>
   using type=int64_t;
 };
 
+// Element Group of 16 8 bits elements (128b total).
+using EGU8x16_t = std::array<uint8_t, 16>;
+
+// // Element Group of 8 16 bits elements (128b total)
+// using EGU16x8_t = std::array<uint16_t, 8>;
+
 // Element Group of 4 32 bits elements (128b total).
 using EGU32x4_t = std::array<uint32_t, 4>;
+
+// // Element Group of 2 64 bits elements (128b total)
+// using EGU64x2_t = std::array<uint64_t, 2>;
+
+// // Element Group of 32 8 bits elements (256b total)
+// using EGU8x32_t = std::array<uint8_t, 32>;
+
+// // Element Group of 16 16 bits elements (256b total)
+// using EGU16x16_t = std::array<uint16_t, 16>;
 
 // Element Group of 8 32 bits elements (256b total).
 using EGU32x8_t = std::array<uint32_t, 8>;
 
 // Element Group of 4 64 bits elements (256b total).
 using EGU64x4_t = std::array<uint64_t, 4>;
-
-// Element Group of 16 8 bits elements (128b total).
-using EGU8x16_t = std::array<uint8_t, 16>;
 
 class vectorUnit_t
 {
@@ -102,11 +114,20 @@ public:
   bool vill;
   bool vstart_alu;
 
+#ifdef FORCE_RISCV_ENABLE
+  template<class T>
+  void do_callback(reg_t vecRegIndex, reg_t eltIndex, const char pAccessType[]) const;
+#endif
+
   // vector element for various SEW
-  template<class T> T& elt(reg_t vReg, reg_t n, bool is_write = false);
+  template<class T> T& elt(reg_t vRegIndex, reg_t n, bool is_write = false);
+#ifdef FORCE_RISCV_ENABLE
+  template<class T> T& elt_do_callback(reg_t vRegIndex, reg_t n, bool is_write = false);
+#endif
+
   // vector element group access, where EG is a std::array<T, N>.
   template<typename EG> EG&
-  elt_group(reg_t vReg, reg_t n, bool is_write = false);
+  elt_group(reg_t vRegIndex, reg_t n, bool is_write = false);
 
 public:
 
@@ -140,6 +161,9 @@ public:
   }
 
   reg_t set_vl(int rd, int rs1, reg_t reqVL, reg_t newType);
+#ifdef FORCE_RISCV_ENABLE
+  reg_t set_vl_api(reg_t reqVL, reg_t newType);
+#endif
 
   reg_t get_vlen() { return VLEN; }
   reg_t get_elen() { return ELEN; }

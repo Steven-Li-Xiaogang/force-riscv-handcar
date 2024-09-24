@@ -21,6 +21,7 @@ if (i != 0) {
     break;
   }
 } else {
+#ifndef FORCE_RISCV_ENABLE
   switch (P.VU.vsew) {
     case e16:
       P.VU.elt<float16_t>(rd_num, 0, true) = FRS1_H;
@@ -32,5 +33,18 @@ if (i != 0) {
       P.VU.elt<float64_t>(rd_num, 0, true) = FRS1_D;
       break;
   }
+#else
+  switch (P.VU.vsew) {
+    case e16:
+      P.VU.elt_do_callback<float16_t>(rd_num, 0, true) = FRS1_H;
+      break;
+    case e32:
+      P.VU.elt_do_callback<float32_t>(rd_num, 0, true) = FRS1_F;
+      break;
+    case e64:
+      P.VU.elt_do_callback<float64_t>(rd_num, 0, true) = FRS1_D;
+      break;
+  }
+#endif
 }
 VI_VFP_LOOP_END

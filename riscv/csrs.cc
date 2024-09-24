@@ -15,6 +15,8 @@
 #include "insn_macros.h"
 // For CSR_DCSR_V:
 #include "debug_defines.h"
+// For LOG_PRINT_XXX
+#include "log_print.h"
 
 // STATE macro used by require_privilege() macro:
 #undef STATE
@@ -52,13 +54,16 @@ csr_t::~csr_t() {
 }
 
 void csr_t::write(const reg_t val) noexcept {
-  const bool success = unlogged_write(val);
+  LOG_PRINT_DEBUG("[csr_t::write] call child->unlogged_write(%lx)\n", val);
+  const bool success = unlogged_write(val);;
   if (success) {
+    LOG_PRINT_DEBUG("[csr_t::write] call this->log_write(%lx)\n", val);
     log_write();
   }
 }
 
 void csr_t::log_write() const noexcept {
+  LOG_PRINT_DEBUG("[csr_t::log_write] address=%lx\n", address);
   log_special_write(address, written_value());
 }
 
@@ -78,6 +83,7 @@ basic_csr_t::basic_csr_t(processor_t* const proc, const reg_t addr, const reg_t 
 }
 
 bool basic_csr_t::unlogged_write(const reg_t val) noexcept {
+  LOG_PRINT_DEBUG("[basic_csr_t::unlogged_write] val=%lx\n", val);
   this->val = val;
   return true;
 }
@@ -139,6 +145,12 @@ reg_t pmpaddr_csr_t::tor_paddr() const noexcept {
   return (val & proc->pmp_tor_mask()) << PMP_SHIFT;
 }
 
+#ifdef FORCE_RISCV_ENABLE
+uint8_t pmpaddr_csr_t::get_cfg() const noexcept {
+  return cfg;
+}
+#endif
+
 reg_t pmpaddr_csr_t::tor_base_paddr() const noexcept {
   if (pmpidx == 0) return 0;  // entry 0 always uses 0 as base
   return state->pmpaddr[pmpidx-1]->tor_paddr();
@@ -180,13 +192,13 @@ bool pmpaddr_csr_t::subset_match(reg_t addr, reg_t len) const noexcept {
   return !(is_tor ? tor_homogeneous : napot_homogeneous);
 }
 
-bool pmpaddr_csr_t::access_ok(access_type type, reg_t mode) const noexcept {
+bool pmpaddr_csr_t::access_ok(access_type type, reg_t priv) const noexcept {
   const bool cfgx = cfg & PMP_X;
   const bool cfgw = cfg & PMP_W;
   const bool cfgr = cfg & PMP_R;
   const bool cfgl = cfg & PMP_L;
 
-  const bool prvm = mode == PRV_M;
+  const bool prvm = priv == PRV_M;
 
   const bool typer = type == LOAD;
   const bool typex = type == FETCH;
@@ -599,6 +611,7 @@ sstatus_csr_t::sstatus_csr_t(processor_t* const proc, sstatus_proxy_csr_t_p orig
 
 void sstatus_csr_t::dirty(const reg_t dirties) {
   // As an optimization, return early if already dirty.
+  LOG_PRINT_INFO("[sstatus_csr_t::dirty] dirties=%lx orig=%lx, virt=%lx\n", dirties, orig_sstatus->read(), virt_sstatus->read());
   if ((orig_sstatus->read() & dirties) == dirties) {
     if (likely(!state->v || (virt_sstatus->read() & dirties) == dirties))
       return;
@@ -606,7 +619,7 @@ void sstatus_csr_t::dirty(const reg_t dirties) {
 
   // Catch problems like #823 where P-extension instructions were not
   // checking for mstatus.VS!=Off:
-  if (!enabled(dirties)) abort();
+//   if (!enabled(dirties)) abort();
 
   orig_sstatus->write(orig_sstatus->read() | dirties);
   if (state->v) {
@@ -620,9 +633,9 @@ bool sstatus_csr_t::enabled(const reg_t which) {
       return true;
   }
 
-  // If the field doesn't exist, it is always enabled. See #823.
-  if (!orig_sstatus->field_exists(which))
-    return true;
+  // // If the field doesn't exist, it is always enabled. See #823.
+  // if (!orig_sstatus->field_exists(which))
+  //   return true;
 
   return false;
 }
@@ -918,6 +931,7 @@ masked_csr_t::masked_csr_t(processor_t* const proc, const reg_t addr, const reg_
 }
 
 bool masked_csr_t::unlogged_write(const reg_t val) noexcept {
+  LOG_PRINT_DEBUG("[masked_csr_t] val=%lx, mask=%lx, read()=%lx", val, mask, read());
   return basic_csr_t::unlogged_write((read() & ~mask) | (val & mask));
 }
 
@@ -947,6 +961,7 @@ base_atp_csr_t::base_atp_csr_t(processor_t* const proc, const reg_t addr):
 
 bool base_atp_csr_t::unlogged_write(const reg_t val) noexcept {
   const reg_t newval = proc->supports_impl(IMPL_MMU) ? compute_new_satp(val) : 0;
+  LOG_PRINT_INFO("[base_atp_csr_t::unlogged_write] val=%lx, newval=%lx\n", val, newval);
   if (newval != read())
     proc->get_mmu()->flush_tlb();
   return basic_csr_t::unlogged_write(newval);
@@ -1374,6 +1389,7 @@ void float_csr_t::verify_permissions(insn_t insn, bool write) const {
 }
 
 bool float_csr_t::unlogged_write(const reg_t val) noexcept {
+  LOG_PRINT_INFO("[float_csr_t::unlogged_write] val=%lx\n", val);
   dirty_fp_state;
   return masked_csr_t::unlogged_write(val);
 }
@@ -1396,6 +1412,7 @@ reg_t composite_csr_t::read() const noexcept {
 }
 
 bool composite_csr_t::unlogged_write(const reg_t val) noexcept {
+  LOG_PRINT_INFO("[composite_csr_t::unlogged_write] upper=%lx, lower=%lx\n", upper_csr->address, lower_csr->address);
   upper_csr->write(val >> upper_lsb);
   lower_csr->write(val);
   return false;  // logging is done only by the underlying CSRs

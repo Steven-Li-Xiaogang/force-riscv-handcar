@@ -43,6 +43,13 @@ class abstract_mem_t : public abstract_device_t {
   virtual char* contents(reg_t addr) = 0;
   virtual reg_t size() = 0;
   virtual void dump(std::ostream& o) = 0;
+#ifdef FORCE_RISCV_ENABLE
+  virtual bool contents_initialized(reg_t addr, size_t len) = 0;
+  virtual void set_initialized(reg_t addr, size_t len) = 0;
+
+  virtual bool contents_reserved() = 0;
+  virtual void set_reserved(bool resved = false) = 0;
+#endif
 };
 
 class mem_t : public abstract_mem_t {
@@ -57,11 +64,22 @@ class mem_t : public abstract_mem_t {
   reg_t size() override { return sz; }
   void dump(std::ostream& o) override;
 
+#ifdef FORCE_RISCV_ENABLE
+  bool contents_initialized(reg_t addr, size_t len);
+  void set_initialized(reg_t addr, size_t len);
+
+  bool contents_reserved() { return reserved; };
+  void set_reserved(bool resved = false) { reserved = resved;};
+#endif
  private:
   bool load_store(reg_t addr, size_t len, uint8_t* bytes, bool store);
 
   std::map<reg_t, char*> sparse_memory_map;
   reg_t sz;
+#ifdef FORCE_RISCV_ENABLE
+  std::vector<reg_t> initialized;
+  bool reserved;
+#endif
 };
 
 class clint_t : public abstract_device_t {

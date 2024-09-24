@@ -41,8 +41,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include "primitiveTypes.h"
 
+#ifndef FORCE_RISCV_ENABLE /* use c++ wrapper in force risc-v */
 #ifdef __cplusplus
 extern "C" {
+#endif
 #endif
 
 #ifndef softfloat_shortShiftRightJam64
@@ -1160,8 +1162,10 @@ void
 
 #endif
 
+#ifndef FORCE_RISCV_ENABLE /* use c++ wrapper in force risc-v */
 #ifdef __cplusplus
 }
+#endif
 #endif
 
 #endif

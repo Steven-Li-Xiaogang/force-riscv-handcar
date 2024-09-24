@@ -21,9 +21,15 @@
 #include <stdexcept>
 #include <string>
 #include <algorithm>
+#include "log_print.h"
 
 #ifdef __GNUC__
 # pragma GCC diagnostic ignored "-Wunused-variable"
+#endif
+
+#ifdef FORCE_RISCV_ENABLE
+#include <cstring>
+#include <iostream>
 #endif
 
 #undef STATE
@@ -31,10 +37,10 @@
 
 processor_t::processor_t(const isa_parser_t *isa, const cfg_t *cfg,
                          simif_t* sim, uint32_t id, bool halt_on_reset,
-                         FILE* log_file, std::ostream& sout_)
+                         FILE* commit_log_file, std::ostream& sout_)
   : debug(false), halt_request(HR_NONE), isa(isa), cfg(cfg), sim(sim), id(id), xlen(0),
   histogram_enabled(false), log_commits_enabled(false),
-  log_file(log_file), sout_(sout_.rdbuf()), halt_on_reset(halt_on_reset),
+  commit_log_file(commit_log_file), sout_(sout_.rdbuf()), halt_on_reset(halt_on_reset),
   in_wfi(false), check_triggers_icount(false),
   impl_table(256, false), extension_enable_table(isa->get_extension_table()),
   last_pc(1), executions(1), TM(cfg->trigger_count)
@@ -71,8 +77,10 @@ processor_t::processor_t(const isa_parser_t *isa, const cfg_t *cfg,
   else if (isa->get_max_xlen() == 64)
     set_mmu_capability(IMPL_MMU_SV57);
 
+#ifndef FORCE_RISCV_ENABLE /* workaround for force-riscv which has no ASID and Hypervisor support */
   set_impl(IMPL_MMU_ASID, true);
   set_impl(IMPL_MMU_VMID, true);
+#endif
 
   reset();
 }
@@ -152,6 +160,9 @@ void processor_t::parse_varch_string(const char* s)
   size_t len = str.length();
   int vlen = 0;
   int elen = 0;
+#ifdef FORCE_RISCV_ENABLE
+  int slen = 0;
+#endif
   int vstart_alu = 0;
 
   while (pos < len) {
@@ -161,6 +172,10 @@ void processor_t::parse_varch_string(const char* s)
 
     if (attr == "vlen")
       vlen = get_int_token(str, ',', pos);
+#ifdef FORCE_RISCV_ENABLE
+    else if (attr == "slen")
+      slen = get_int_token(str, ',', pos);
+#endif
     else if (attr == "elen")
       elen = get_int_token(str, ',', pos);
     else if (attr == "vstartalu")
@@ -175,6 +190,13 @@ void processor_t::parse_varch_string(const char* s)
   if (!check_pow2(vlen) || !check_pow2(elen)) {
     bad_varch_string(s, "The integer value should be the power of 2");
   }
+
+#ifdef FORCE_RISCV_ENABLE
+  if (slen == 0)
+    slen = vlen;
+  if (vlen != slen)
+    bad_varch_string(s, "vlen must be == slen for current limitation");
+#endif
 
   /* Vector spec requirements. */
   if (vlen < elen)
@@ -204,6 +226,13 @@ void state_t::reset(processor_t* const proc, reg_t max_isa)
   pc = DEFAULT_RSTVEC;
   XPR.reset();
   FPR.reset();
+#ifdef FORCE_RISCV_ENABLE
+  XPR.set_pid(proc->get_id());
+  FPR.set_pid(proc->get_id());
+  pid = proc->get_id();
+#endif
+
+  printf("------------------ state reset -------------\n");
 
   // This assumes xlen is always max_xlen, which is true today (see
   // mstatus_csr_t::unlogged_write()):
@@ -718,6 +747,8 @@ void processor_t::set_mmu_capability(int cap)
 
 void processor_t::take_interrupt(reg_t pending_interrupts)
 {
+  // FIXME: add register read callback calls here
+
   // Do nothing if no pending interrupts
   if (!pending_interrupts) {
     return;
@@ -800,7 +831,26 @@ void processor_t::set_privilege(reg_t prv, bool virt)
   state.v = virt && state.prv != PRV_M;
   state.prv_changed = state.prv != state.prev_prv;
   state.v_changed = state.v != state.prev_v;
+
+  #ifdef FORCE_RISCV_ENABLE // notify privilege changes
+  update_generator_register(this->id, "privilege", prv, 0x3ull, "write");
+  #endif
 }
+
+#ifdef FORCE_RISCV_ENABLE
+void processor_t::set_privilege_api(reg_t prv, bool virt)
+{
+  mmu->flush_tlb();
+  state.prev_prv = state.prv;
+  state.prev_v = state.v;
+  state.prv = legalize_privilege(prv);
+  state.v = virt && state.prv != PRV_M;
+  state.prv_changed = state.prv != state.prev_prv;
+  state.v_changed = state.v != state.prev_v;
+
+  /* no need to call register updating callback ??? */
+}
+#endif
 
 const char* processor_t::get_privilege_string()
 {
@@ -824,6 +874,7 @@ const char* processor_t::get_privilege_string()
 
 void processor_t::enter_debug_mode(uint8_t cause)
 {
+#ifndef FORCE_RISCV_ENABLE /* Force Risc-V does not support debug */
   const bool has_zicfilp = extension_enabled(EXT_ZICFILP);
   state.debug_mode = true;
   state.dcsr->update_fields(cause, state.prv, state.v, state.elp);
@@ -832,15 +883,16 @@ void processor_t::enter_debug_mode(uint8_t cause)
   state.dpc->write(state.pc);
   state.pc = DEBUG_ROM_ENTRY;
   in_wfi = false;
+#endif
 }
 
 void processor_t::debug_output_log(std::stringstream *s)
 {
-  if (log_file == stderr) {
+  if (commit_log_file == stderr) {
     std::ostream out(sout_.rdbuf());
     out << s->str(); // handles command line options -d -s -l
   } else {
-    fputs(s->str().c_str(), log_file); // handles command line option --log
+    fputs(s->str().c_str(), commit_log_file); // handles command line option --log
   }
 }
 
@@ -860,6 +912,7 @@ void processor_t::take_trap(trap_t& t, reg_t epc)
     debug_output_log(&s);
   }
 
+#ifndef FORCE_RISCV_ENABLE /* Force Risc-V does not support debug */
   if (state.debug_mode) {
     if (t.cause() == CAUSE_BREAKPOINT) {
       state.pc = DEBUG_ROM_ENTRY;
@@ -868,6 +921,13 @@ void processor_t::take_trap(trap_t& t, reg_t epc)
     }
     return;
   }
+#else
+  if (t.cause() == CAUSE_BREAKPOINT && (
+                (state.prv == PRV_M && state.dcsr->ebreakm) ||
+                (state.prv == PRV_S && state.dcsr->ebreaks) ||
+                (state.prv == PRV_U && state.dcsr->ebreaku)))
+      return;
+#endif
 
   // By default, trap to M-mode, unless delegated to HS-mode or VS-mode
   reg_t vsdeleg, hsdeleg;
@@ -879,9 +939,21 @@ void processor_t::take_trap(trap_t& t, reg_t epc)
     vsdeleg = (curr_virt && state.prv <= PRV_S) ? state.hideleg->read() : 0;
     hsdeleg = (state.prv <= PRV_S) ? state.mideleg->read() : 0;
     bit &= ~((reg_t)1 << (max_xlen - 1));
+
+  #ifdef FORCE_RISCV_ENABLE
+    // notify value of "mideleg" and "hideleg" while interrutps take trap
+    update_generator_register(this->id, "mideleg", state.mideleg->read(), 0xffffffffffffffffull, "read");
+    update_generator_register(this->id, "hideleg", state.hideleg->read(), 0xffffffffffffffffull, "read");
+  #endif
   } else {
     vsdeleg = (curr_virt && state.prv <= PRV_S) ? (state.medeleg->read() & state.hedeleg->read()) : 0;
     hsdeleg = (state.prv <= PRV_S) ? state.medeleg->read() : 0;
+
+  #ifdef FORCE_RISCV_ENABLE
+    // notify value of "medelge" and "hedelege" while exceptions take trap
+    update_generator_register(this->id, "medeleg", state.medeleg->read(), 0xffffffffffffffffull, "read");
+    update_generator_register(this->id, "hedeleg", state.hedeleg->read(), 0xffffffffffffffffull, "read");
+  #endif
   }
   if (state.prv <= PRV_S && bit < max_xlen && ((vsdeleg >> bit) & 1)) {
     // Handle the trap in VS-mode
@@ -909,6 +981,19 @@ void processor_t::take_trap(trap_t& t, reg_t epc)
     state.nonvirtual_stval->write(t.get_tval());
     state.htval->write(t.get_tval2());
     state.htinst->write(t.get_tinst());
+
+  #ifdef FORCE_RISCV_ENABLE
+    /* HS-mode handle the trap as S-mode while Hypervisor enabled */
+    update_generator_register(this->id, "stvec", state.stvec->read(), 0xffffffffffffffffull, "read");
+    update_generator_register(this->id, "PC", state.pc, 0xffffffffffffffffull, "write");
+    update_generator_register(this->id, "scause", state.scause->read(), 0xffffffffffffffffull, "write");
+    update_generator_register(this->id, "sepc", state.sepc->read(), 0xffffffffffffffffull, "write");
+    update_generator_register(this->id, "stval", state.stval->read(), 0xffffffffffffffffull, "write");
+    update_generator_register(this->id, "vstart", VU.vstart->read(), 0xffffffffffffffffull, "write");
+
+    SimException enter_s(state.scause->read(), state.stval->read(), "enter_s", epc);
+    update_exception_event(&enter_s);
+  #endif
 
     reg_t s = state.nonvirtual_sstatus->read();
     s = set_field(s, MSTATUS_SPIE, get_field(s, MSTATUS_SIE));
@@ -940,6 +1025,19 @@ void processor_t::take_trap(trap_t& t, reg_t epc)
     state.mtval->write(t.get_tval());
     state.mtval2->write(t.get_tval2());
     state.mtinst->write(t.get_tinst());
+
+  #ifdef FORCE_RISCV_ENABLE
+    // notify M-mode CSR while taking trap
+    update_generator_register(this->id, "mtvec", state.mtvec->read(), 0xffffffffffffffffull, "read");
+    update_generator_register(this->id, "PC", state.pc, 0xffffffffffffffffull, "write");
+    update_generator_register(this->id, "mcause", state.mcause->read(), 0xffffffffffffffffull, "write");
+    update_generator_register(this->id, "mepc", state.mepc->read(), 0xffffffffffffffffull, "write");
+    update_generator_register(this->id, "mtval", state.mtval->read(), 0xffffffffffffffffull, "write");
+    update_generator_register(this->id, "vstart", VU.vstart->read(), 0xffffffffffffffffull, "write");
+
+    SimException enter_m(state.mcause->read(), state.mtval->read(), "enter_m", epc);
+    update_exception_event(&enter_m);
+  #endif
 
     reg_t s = state.mstatus->read();
     s = set_field(s, MSTATUS_MPIE, get_field(s, MSTATUS_MIE));
@@ -1038,31 +1136,153 @@ void processor_t::put_csr(int which, reg_t val)
   auto search = state.csrmap.find(which);
   if (search != state.csrmap.end()) {
     search->second->write(val);
+
+  #ifdef FORCE_RISCV_ENABLE
+    reg_t effective_value = 0;
+    std::string text_name = std::string(csr_name(which));
+
+    // TODO(Noah): Improve this logic when a more general mechanism, i.e. one that could potentially
+    // handle other alias registers, can be devised. Since sstatus is a restricted alias of mstatus,
+    // we need to send the update for the underlying mstatus register.
+    effective_value = search->second->read();
+    if (search->second == STATE.sstatus) {
+      text_name = "mstatus";
+      effective_value = STATE.mstatus->read();
+    }
+
+    // notify changes of CSRs
+    update_generator_register(this->id, text_name.c_str(), effective_value, 0xffffffffffffffffull, "write");
+  #endif
     return;
   }
+
+  /* FIXME: verify unknown CSR */
 }
+
+#ifdef FORCE_RISCV_ENABLE
+void processor_t::put_csr_api(int which, reg_t val)
+{
+  LOG_PRINT_INFO("[processor_t::put_csr_api] which=%x, val=%lx\n", which, val);
+  val = zext_xlen(val);
+  auto search = state.csrmap.find(which);
+  if (search != state.csrmap.end()) {
+    if (search->first == CSR_VL)
+      search->second->write(VU.set_vl_api(val, VU.vtype->read()));
+    else if (search->first == CSR_VTYPE)
+      VU.set_vl_api(VU.vl->read(), val);
+    else {
+      LOG_PRINT_DEBUG(">>>>>>>> put_csr_api which=%lx, val=%lx\n", search->first, search->second->read());
+      search->second->write(val);
+    }
+  }
+
+  /* FIXME: verify unknown CSR */
+}
+#endif
 
 // Note that get_csr is sometimes called when read side-effects should not
 // be actioned.  In other words, Spike cannot currently support CSRs with
 // side effects on reads.
 reg_t processor_t::get_csr(int which, insn_t insn, bool write, bool peek)
 {
+  LOG_PRINT_INFO("[processor_t::get_csr] which=%x, insn=%lx\n", which, insn.bits());
   auto search = state.csrmap.find(which);
   if (search != state.csrmap.end()) {
     if (!peek)
       search->second->verify_permissions(insn, write);
+#ifndef FORCE_RISCV_ENABLE
     return search->second->read();
+#else
+    reg_t res = search->second->read();
+    std::string text_name = std::string(csr_name(which));
+
+    // TODO(Noah): Improve this logic when a more general mechanism, i.e. one that could potentially
+    // handle other alias registers, can be devised. Since sstatus is a restricted alias of mstatus,
+    // we need to send the update for the underlying mstatus register.
+    reg_t update_val = res;
+    if (search->second == STATE.sstatus) {
+      text_name = "mstatus";
+      update_val = STATE.mstatus->read();
+    }
+
+    // notify reading CSRs
+    update_generator_register(this->id, text_name.c_str(), update_val, 0xffffffffffffffffull, "read");
+
+    return res;
+#endif
   }
   // If we get here, the CSR doesn't exist.  Unimplemented CSRs always throw
   // illegal-instruction exceptions, not virtual-instruction exceptions.
   throw trap_illegal_instruction(insn.bits());
 }
 
+#ifdef FORCE_RISCV_ENABLE
+reg_t processor_t::get_csr_api(int which)
+{
+  LOG_PRINT_INFO("[processor_t::get_csr] which=%x\n", which);
+
+  auto search = state.csrmap.find(which);
+  if (search != state.csrmap.end()) {
+    return search->second->read();
+  }
+  // If we get here, the CSR doesn't exist.
+  return 0xDEADBEEFDEADBEEF;
+}
+
+void processor_t::reset_pc_api(reg_t entry)
+{
+  state.pc = entry;
+}
+
+bool processor_t::set_pc_api(const std::string& name, const uint8_t* bytes,
+                              size_t len) // len advertises the size of the buffer
+{
+  LOG_PRINT_INFO("[processor_t::set_pc_api] name=%s\n", name.c_str());
+
+  if (nullptr == bytes)
+    return false;
+
+  if (std::string("PC") == name || std::string("pc") == name) {
+      if (sizeof(state.pc) == len) {
+        memcpy(&(state.pc), bytes, len);
+        return true;
+      }
+  }
+
+  return false;
+}
+
+bool processor_t::get_pc_api(uint8_t* bytes, const std::string& name,
+                                  size_t len) // len advertises the size of the buffer
+{
+  LOG_PRINT_INFO("[processor_t::%s] name=%s\n", __func__, name.c_str());
+
+  if (nullptr == bytes)
+    return false;
+
+  if (std::string("PC") == name || std::string("pc") == name) {
+      if (sizeof(state.pc) == len) {
+        memcpy(bytes, &(state.pc), len);
+        return true;
+      }
+  }
+
+  return false;
+}
+
+void processor_t::get_privilege_api(reg_t* val)
+{
+  if (nullptr != val)
+    *val = state.prv;
+}
+#endif
+
 reg_t illegal_instruction(processor_t UNUSED *p, insn_t insn, reg_t UNUSED pc)
 {
   // The illegal instruction can be longer than ILEN bits, where the tval will
   // contain the first ILEN bits of the faulting instruction. We hard-code the
   // ILEN to 32 bits since all official instructions have at most 32 bits.
+  LOG_PRINT_DEBUG("[%s] insn=%lx pc=%lx\n", __func__, insn.bits(), pc);
   throw trap_illegal_instruction(insn.bits() & 0xffffffffULL);
 }
 
@@ -1117,6 +1337,9 @@ void processor_t::register_insn(insn_desc_t desc, bool is_custom) {
   assert(desc.fast_rv32i && desc.fast_rv64i && desc.fast_rv32e && desc.fast_rv64e &&
          desc.logged_rv32i && desc.logged_rv64i && desc.logged_rv32e && desc.logged_rv64e);
 
+  LOG_PRINT_INFO("[processor_t::register_insn] match=%lx, mask=%lx\n", desc.match, desc.mask);
+  // LOG_PRINT_INFO("                             fast_rv64i=%p, fast_rv64e=%p, logged_rv64i=%p, logged_rv64e=%p\n",
+  //                                               desc.fast_rv64i, desc.fast_rv64e, desc.logged_rv64i, desc.logged_rv64e);
   if (is_custom)
     custom_instructions.push_back(desc);
   else
@@ -1205,6 +1428,10 @@ bool processor_t::load(reg_t addr, size_t len, uint8_t* bytes)
       if (len <= 4) {
         memset(bytes, 0, len);
         bytes[0] = get_field(state.mip->read(), MIP_MSIP);
+#ifdef FORCE_RISCV_ENABLE
+        // offset 0: notify MIP reading
+        update_generator_register(this->id, "mip", state.mip->read(), 0xffffffffffffffffull, "read");
+#endif
         return true;
       }
       break;
@@ -1220,6 +1447,10 @@ bool processor_t::store(reg_t addr, size_t len, const uint8_t* bytes)
     case 0:
       if (len <= 4) {
         state.mip->write_with_mask(MIP_MSIP, bytes[0] << IRQ_M_SOFT);
+#ifdef FORCE_RISCV_ENABLE
+        // offset 0: notify MIP writting
+        update_generator_register(this->id, "mip", state.mip->read(), 0xffffffffffffffffull, "write");
+#endif
         return true;
       }
       break;

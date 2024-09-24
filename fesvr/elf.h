@@ -29,23 +29,25 @@
 
 #define SHT_NOBITS 8
 
+// executable header
 typedef struct {
-  uint8_t  e_ident[16];
-  uint16_t e_type;
-  uint16_t e_machine;
+  uint8_t  e_ident[16]; // Magic: .ELF, class(0x01=32-bit), data(0x01:le, 0x02:be), version
+  uint16_t e_type; // 1: REL(relocatable file) 2:EXEC(executable file), 3:DYN(shared object file), 4:CORE
+  uint16_t e_machine; // 243:RISCV
   uint32_t e_version;
-  uint32_t e_entry;
-  uint32_t e_phoff;
-  uint32_t e_shoff;
+  uint32_t e_entry; // entry point address
+  uint32_t e_phoff; // start of program headers
+  uint32_t e_shoff; // start of section headers
   uint32_t e_flags;
-  uint16_t e_ehsize;
-  uint16_t e_phentsize;
-  uint16_t e_phnum;
-  uint16_t e_shentsize;
-  uint16_t e_shnum;
-  uint16_t e_shstrndx;
+  uint16_t e_ehsize; // size of this header (52)
+  uint16_t e_phentsize; // size of program headers
+  uint16_t e_phnum; // number of program headers
+  uint16_t e_shentsize; // size of section headers
+  uint16_t e_shnum; // number of section headers
+  uint16_t e_shstrndx; // section header string table index
 } Elf32_Ehdr;
 
+// section header
 typedef struct {
   uint32_t sh_name;
   uint32_t sh_type;
@@ -59,6 +61,7 @@ typedef struct {
   uint32_t sh_entsize;
 } Elf32_Shdr;
 
+// program header
 typedef struct
 {
   uint32_t p_type;
@@ -82,15 +85,15 @@ typedef struct
 } Elf32_Sym;
 
 typedef struct {
-  uint8_t  e_ident[16];
-  uint16_t e_type;
+  uint8_t  e_ident[16]; // Magic: .ELF, class(0x02=64-bit), data, version
+  uint16_t e_type; // 1: REL(relocatable file) 2:EXEC(executable file), 3:DYN(shared object file), 4:CORE
   uint16_t e_machine;
   uint32_t e_version;
-  uint64_t e_entry;
-  uint64_t e_phoff;
+  uint64_t e_entry; // entry point address
+  uint64_t e_phoff; // start of program headers (64)
   uint64_t e_shoff;
   uint32_t e_flags;
-  uint16_t e_ehsize;
+  uint16_t e_ehsize; // size of this header (64)
   uint16_t e_phentsize;
   uint16_t e_phnum;
   uint16_t e_shentsize;
@@ -122,6 +125,7 @@ typedef struct {
   uint64_t p_align;
 } Elf64_Phdr;
 
+// Symbol (.tymtab)
 typedef struct {
   uint32_t st_name;
   uint8_t  st_info;

@@ -62,6 +62,11 @@ mem_t::mem_t(reg_t size)
 {
   if (size == 0 || size % PGSIZE != 0)
     throw std::runtime_error("memory size must be a positive multiple of 4 KiB");
+
+#ifdef FORCE_RISCV_ENABLE
+  initialized.resize(size, 0);
+  reserved = false;
+#endif
 }
 
 mem_t::~mem_t()
@@ -90,6 +95,34 @@ bool mem_t::load_store(reg_t addr, size_t len, uint8_t* bytes, bool store)
 
   return true;
 }
+
+#ifdef FORCE_RISCV_ENABLE
+bool mem_t::contents_initialized(reg_t addr, size_t len) {
+  if (addr + len < addr || (addr + len) > sz)
+    return false;
+
+  bool inited = true;
+  for (reg_t cur = addr; (cur < addr + len) && inited; cur++)
+    if (initialized[cur] == 0)
+      inited = false;
+
+  return inited;
+}
+
+void mem_t::set_initialized(reg_t addr, size_t len) {
+  if (addr + len < addr)
+    return ;
+
+  if (addr + len > sz)
+    len = sz - addr;
+
+  while (len > 0) {
+    initialized[addr] = 1;
+    addr += 1;
+    len -= 1;
+  }
+}
+#endif
 
 char* mem_t::contents(reg_t addr) {
   reg_t ppn = addr >> PGSHIFT, pgoff = addr % PGSIZE;

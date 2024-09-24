@@ -25,6 +25,10 @@
  * sets PREFIX, and pconfigure sets __PCONFIGURE__PREFIX. */
 #if !defined(PREFIX) && defined(__PCONFIGURE__PREFIX)
 # define PREFIX __PCONFIGURE__PREFIX
+#else
+#if !defined(PREFIX)
+#define PREFIX
+#endif
 #endif
 
 #ifndef TARGET_ARCH
@@ -44,10 +48,15 @@ static void handle_signal(int sig)
   signal(sig, &handle_signal);
 }
 
+// #ifndef FORCE_RISCV_ENABLE
+// htif_t::htif_t()
+//   : mem(this), entry(DRAM_BASE), sig_addr(0), sig_len(0),
+//     tohost_addr(0), fromhost_addr(0), exitcode(0), stopped(false),
+//     syscall_proxy(this)
+// #else
 htif_t::htif_t()
-  : mem(this), entry(DRAM_BASE), sig_addr(0), sig_len(0),
-    tohost_addr(0), fromhost_addr(0), exitcode(0), stopped(false),
-    syscall_proxy(this)
+  :mem(this), entry(DRAM_BASE)
+// #endif
 {
   signal(SIGINT, &handle_signal);
   signal(SIGTERM, &handle_signal);
@@ -56,8 +65,12 @@ htif_t::htif_t()
 
 htif_t::htif_t(int argc, char** argv) : htif_t()
 {
-  //Set line size as 16 by default.
-  line_size = 16;
+// #ifndef FORCE_RISCV_ENABLE
+//   //Set line size as 16 by default.
+//   line_size = 16;
+// #endif
+
+
   parse_arguments(argc, argv);
   register_devices();
 }
@@ -70,8 +83,11 @@ htif_t::htif_t(const std::vector<std::string>& args) : htif_t()
   for (unsigned int i = 0; i < args.size(); i++) {
     argv[i+1] = (char *) args[i].c_str();
   }
-  //Set line size as 16 by default.
-  line_size = 16;
+
+// #ifndef FORCE_RISCV_ENABLE
+//   //Set line size as 16 by default.
+//   line_size = 16;
+// #endif
   parse_arguments(argc, argv);
   register_devices();
 }
@@ -82,19 +98,21 @@ htif_t::~htif_t()
     delete d;
 }
 
-void htif_t::start()
-{
-  if (!targs.empty() && targs[0] != "none") {
-    try {
-      load_program();
-    } catch (const incompat_xlen & err) {
-      fprintf(stderr, "Error: cannot execute %d-bit program on RV%d hart\n", err.actual_xlen, err.expected_xlen);
-      exit(1);
-    }
-  }
+// #ifndef FORCE_RISCV_ENABLE
+// void htif_t::start()
+// {
+//   if (!targs.empty() && targs[0] != "none") {
+//     try {
+//       load_program();
+//     } catch (const incompat_xlen & err) {
+//       fprintf(stderr, "Error: cannot execute %d-bit program on RV%d hart\n", err.actual_xlen, err.expected_xlen);
+//       exit(1);
+//     }
+//   }
 
-  reset();
-}
+//   reset();
+// }
+// #endif
 
 static void bad_address(const std::string& situation, reg_t addr)
 {
@@ -152,21 +170,23 @@ std::map<std::string, uint64_t> htif_t::load_payload(const std::string& payload,
 
 void htif_t::load_program()
 {
-  std::map<std::string, uint64_t> symbols = load_payload(targs[0], &entry);
+  std::map<std::string, uint64_t> symbols;
+// #ifndef FORCE_RISCV_ENABLE
+//   std::map<std::string, uint64_t> symbols = load_payload(targs[0], &entry);
 
-  if (symbols.count("tohost") && symbols.count("fromhost")) {
-    tohost_addr = symbols["tohost"];
-    fromhost_addr = symbols["fromhost"];
-  } else {
-    fprintf(stderr, "warning: tohost and fromhost symbols not in ELF; can't communicate with target\n");
-  }
+//   if (symbols.count("tohost") && symbols.count("fromhost")) {
+//     tohost_addr = symbols["tohost"];
+//     fromhost_addr = symbols["fromhost"];
+//   } else {
+//     fprintf(stderr, "warning: tohost and fromhost symbols not in ELF; can't communicate with target\n");
+//   }
 
-  // detect torture tests so we can print the memory signature at the end
-  if (symbols.count("begin_signature") && symbols.count("end_signature")) {
-    sig_addr = symbols["begin_signature"];
-    sig_len = symbols["end_signature"] - sig_addr;
-  }
-
+//   // detect torture tests so we can print the memory signature at the end
+//   if (symbols.count("begin_signature") && symbols.count("end_signature")) {
+//     sig_addr = symbols["begin_signature"];
+//     sig_len = symbols["end_signature"] - sig_addr;
+//   }
+// #endif
   for (auto payload : payloads) {
     reg_t dummy_entry;
     load_payload(payload, &dummy_entry);
@@ -207,32 +227,34 @@ const char* htif_t::get_symbol(uint64_t addr)
   return it->second.c_str();
 }
 
-void htif_t::stop()
-{
-  if (!sig_file.empty() && sig_len) // print final torture test signature
-  {
-    std::vector<uint8_t> buf(sig_len);
-    mem.read(sig_addr, sig_len, buf.data());
+// #ifndef FORCE_RISCV_ENABLE
+// void htif_t::stop()
+// {
+//   if (!sig_file.empty() && sig_len) // print final torture test signature
+//   {
+//     std::vector<uint8_t> buf(sig_len);
+//     mem.read(sig_addr, sig_len, buf.data());
 
-    std::ofstream sigs(sig_file);
-    assert(sigs && "can't open signature file!");
-    sigs << std::setfill('0') << std::hex;
+//     std::ofstream sigs(sig_file);
+//     assert(sigs && "can't open signature file!");
+//     sigs << std::setfill('0') << std::hex;
 
-    for (addr_t i = 0; i < sig_len; i += line_size)
-    {
-      for (addr_t j = line_size; j > 0; j--)
-          if (i+j <= sig_len)
-            sigs << std::setw(2) << (uint16_t)buf[i+j-1];
-          else
-            sigs << std::setw(2) << (uint16_t)0;
-      sigs << '\n';
-    }
+//     for (addr_t i = 0; i < sig_len; i += line_size)
+//     {
+//       for (addr_t j = line_size; j > 0; j--)
+//           if (i+j <= sig_len)
+//             sigs << std::setw(2) << (uint16_t)buf[i+j-1];
+//           else
+//             sigs << std::setw(2) << (uint16_t)0;
+//       sigs << '\n';
+//     }
 
-    sigs.close();
-  }
+//     sigs.close();
+//   }
 
-  stopped = true;
-}
+//   stopped = true;
+// }
+// #endif
 
 void htif_t::clear_chunk(addr_t taddr, size_t len)
 {
@@ -243,70 +265,72 @@ void htif_t::clear_chunk(addr_t taddr, size_t len)
     write_chunk(taddr + pos, std::min(len - pos, chunk_max_size()), zeros);
 }
 
-int htif_t::run()
-{
-  start();
+// #ifndef FORCE_RISCV_ENABLE
+// int htif_t::run()
+// {
+//   start();
 
-  auto enq_func = [](std::queue<reg_t>* q, uint64_t x) { q->push(x); };
-  std::queue<reg_t> fromhost_queue;
-  std::function<void(reg_t)> fromhost_callback =
-    std::bind(enq_func, &fromhost_queue, std::placeholders::_1);
+//   auto enq_func = [](std::queue<reg_t>* q, uint64_t x) { q->push(x); };
+//   std::queue<reg_t> fromhost_queue;
+//   std::function<void(reg_t)> fromhost_callback =
+//     std::bind(enq_func, &fromhost_queue, std::placeholders::_1);
 
-  if (tohost_addr == 0) {
-    while (!signal_exit)
-      idle();
-  }
+//   if (tohost_addr == 0) {
+//     while (!signal_exit)
+//       idle();
+//   }
 
-  while (!signal_exit && exitcode == 0)
-  {
-    uint64_t tohost;
+//   while (!signal_exit && exitcode == 0)
+//   {
+//     uint64_t tohost;
 
-    try {
-      if ((tohost = from_target(mem.read_uint64(tohost_addr))) != 0)
-        mem.write_uint64(tohost_addr, target_endian<uint64_t>::zero);
-    } catch (mem_trap_t& t) {
-      bad_address("accessing tohost", t.get_tval());
-    }
+//     try {
+//       if ((tohost = from_target(mem.read_uint64(tohost_addr))) != 0)
+//         mem.write_uint64(tohost_addr, target_endian<uint64_t>::zero);
+//     } catch (mem_trap_t& t) {
+//       bad_address("accessing tohost", t.get_tval());
+//     }
 
-    try {
-      if (tohost != 0) {
-        command_t cmd(mem, tohost, fromhost_callback);
-        device_list.handle_command(cmd);
-      } else {
-        idle();
-      }
+//     try {
+//       if (tohost != 0) {
+//         command_t cmd(mem, tohost, fromhost_callback);
+//         device_list.handle_command(cmd);
+//       } else {
+//         idle();
+//       }
 
-      device_list.tick();
-    } catch (mem_trap_t& t) {
-      std::stringstream tohost_hex;
-      tohost_hex << std::hex << tohost;
-      bad_address("host was accessing memory on behalf of target (tohost = 0x" + tohost_hex.str() + ")", t.get_tval());
-    }
+//       device_list.tick();
+//     } catch (mem_trap_t& t) {
+//       std::stringstream tohost_hex;
+//       tohost_hex << std::hex << tohost;
+//       bad_address("host was accessing memory on behalf of target (tohost = 0x" + tohost_hex.str() + ")", t.get_tval());
+//     }
 
-    try {
-      if (!fromhost_queue.empty() && !mem.read_uint64(fromhost_addr)) {
-        mem.write_uint64(fromhost_addr, to_target(fromhost_queue.front()));
-        fromhost_queue.pop();
-      }
-    } catch (mem_trap_t& t) {
-      bad_address("accessing fromhost", t.get_tval());
-    }
-  }
+//     try {
+//       if (!fromhost_queue.empty() && !mem.read_uint64(fromhost_addr)) {
+//         mem.write_uint64(fromhost_addr, to_target(fromhost_queue.front()));
+//         fromhost_queue.pop();
+//       }
+//     } catch (mem_trap_t& t) {
+//       bad_address("accessing fromhost", t.get_tval());
+//     }
+//   }
 
-  stop();
+//   stop();
 
-  return exit_code();
-}
+//   return exit_code();
+// }
 
-bool htif_t::done()
-{
-  return stopped;
-}
+// bool htif_t::done()
+// {
+//   return stopped;
+// }
 
-int htif_t::exit_code()
-{
-  return exitcode >> 1;
-}
+// int htif_t::exit_code()
+// {
+//   return exitcode >> 1;
+// }
+// #endif
 
 void htif_t::parse_arguments(int argc, char ** argv)
 {
@@ -331,16 +355,22 @@ void htif_t::parse_arguments(int argc, char ** argv)
         dynamic_devices.push_back(new disk_t(optarg));
         break;
       case HTIF_LONG_OPTIONS_OPTIND + 2:
-        sig_file = optarg;
+// #ifndef FORCE_RISCV_ENABLE
+//         sig_file = optarg;
+// #endif
         break;
       case HTIF_LONG_OPTIONS_OPTIND + 3:
-        syscall_proxy.set_chroot(optarg);
+// #ifndef FORCE_RISCV_ENABLE
+//         syscall_proxy.set_chroot(optarg);
+// #endif
         break;
       case HTIF_LONG_OPTIONS_OPTIND + 4:
         payloads.push_back(optarg);
         break;
       case HTIF_LONG_OPTIONS_OPTIND + 5:
-        line_size = atoi(optarg);
+// #ifndef FORCE_RISCV_ENABLE
+//         line_size = atoi(optarg);
+// #endif
         break;
       case HTIF_LONG_OPTIONS_OPTIND + 6:
         targs.push_back(optarg);
@@ -386,10 +416,10 @@ void htif_t::parse_arguments(int argc, char ** argv)
           c = HTIF_LONG_OPTIONS_OPTIND + 5;
           optarg = optarg + 23;
         }
-	else if (arg.find("+target-argument=") == 0) {
-	  c = HTIF_LONG_OPTIONS_OPTIND + 6;
-	  optarg = optarg + 17;
-	}
+        else if (arg.find("+target-argument=") == 0) {
+          c = HTIF_LONG_OPTIONS_OPTIND + 6;
+          optarg = optarg + 17;
+        }
         else if (arg.find("+symbol-elf=") == 0) {
           c = HTIF_LONG_OPTIONS_OPTIND + 7;
           optarg = optarg + 12;
@@ -426,12 +456,13 @@ done_processing:
     usage(argv[0]);
     throw std::invalid_argument("No binary specified (Did you forget it? Did you forget '+permissive-off' if running with +permissive?)");
   }
+  return;
 }
 
 void htif_t::register_devices()
 {
-  device_list.register_device(&syscall_proxy);
-  device_list.register_device(&bcd);
+  // device_list.register_device(&syscall_proxy);
+  // device_list.register_device(&bcd);
   for (auto d : dynamic_devices)
     device_list.register_device(d);
 }

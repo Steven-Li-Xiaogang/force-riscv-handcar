@@ -10,7 +10,9 @@
 #include <stdexcept>
 #include <vector>
 
-class sim_t;
+// #ifndef FORCE_RISCV_ENABLE
+class simif_t;
+// #endif
 
 class abstract_device_t {
  public:
@@ -20,12 +22,13 @@ class abstract_device_t {
   virtual void tick(reg_t UNUSED rtc_ticks) {}
 };
 
+// #ifndef FORCE_RISCV_ENABLE
 // factory for devices which should show up in the DTS, and can be
 // parameterized by parsing the DTS
 class device_factory_t {
 public:
-  virtual abstract_device_t* parse_from_fdt(const void* fdt, const sim_t* sim, reg_t* base) const = 0;
-  virtual std::string generate_dts(const sim_t* sim) const = 0;
+  virtual abstract_device_t* parse_from_fdt(const void* fdt, const simif_t* sim, reg_t* base) const = 0;
+  virtual std::string generate_dts(const simif_t* sim) const = 0;
   virtual ~device_factory_t() {}
   void set_sargs(std::vector<std::string> sargs) { this->sargs = sargs; }
   std::vector<std::string> get_sargs() { return sargs; }
@@ -46,8 +49,9 @@ mmio_device_map_t& mmio_device_map();
     std::string str(#name); \
     if (!mmio_device_map().emplace(str, this).second) throw std::runtime_error("Plugin \"" + str + "\" already registered"); \
   }; \
-  name##_t* parse_from_fdt(const void* fdt, const sim_t* sim, reg_t* base) const override { return parse(fdt, sim, base, sargs); } \
-  std::string generate_dts(const sim_t* sim) const override { return generate(sim); } \
+  name##_t* parse_from_fdt(const void* fdt, const simif_t* sim, reg_t* base) const override { return parse(fdt, sim, base, sargs); } \
+  std::string generate_dts(const simif_t* sim) const override { return generate(sim); } \
   }; device_factory_t *name##_factory = new name##_factory_t();
+// #endif
 
 #endif
