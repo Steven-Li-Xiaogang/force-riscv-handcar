@@ -18,6 +18,8 @@ ALL_SRCS := $(wildcard *.cc disasm/*.cc fesvr/*.cc force_mod/*.cc riscv/*.cc spi
 ALL_SRCS := $(filter-out fesvr/dtm.cc fesvr/elf2hex.cc fesvr/htif_hexwriter.cc fesvr/htif_pthread.cc fesvr/syscall.cc fesvr/term.cc fesvr/tsi.cc riscv/debug_module.cc riscv/dts.cc riscv/insn_template.cc riscv/interactive.cc riscv/jtag_dtm.cc riscv/rom.cc spike_main/spike-dasm.cc spike_main/spike-log-parser.cc spike_main/termios-xspike.cc spike_main/xspike.cc, $(ALL_SRCS))
 ALL_C_SRCS := $(wildcard *.c softfloat/*.c)
 
+SPIKE_MEM ?=
+
 CLEAN_TARGETS = \
 	./bin/\
 	./make_area/\
@@ -35,9 +37,15 @@ all:
 	@$(MAKE) handcar
 	@$(MAKE) install
 
+# enable spike memory model for handcar cosim
+ifeq ($(SPIKE_MEM),TRUE)
+CFLAGS += -DFORCE_RISCV_SPIKE_MEM
+endif
+
 ifeq (0, $(words $(findstring $(MAKECMDGOALS), $(NODEPS))))
 -include $(ALL_DEPS) $(ALL_C_DEPS)
 endif
+
 #
 # Needed for all the APIs in .cc files
 #

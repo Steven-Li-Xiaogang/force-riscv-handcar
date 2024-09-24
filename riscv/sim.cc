@@ -842,6 +842,7 @@ bool simlib_t::mmio_store(reg_t paddr, size_t len, const uint8_t* bytes)
   return bus.store(paddr, len, bytes);
 }
 
+// target address to host address
 char* simlib_t::addr_to_mem(reg_t paddr) {
   if (!paddr_ok(paddr))
     return NULL;
@@ -938,8 +939,6 @@ const char* simlib_t::get_symbol(uint64_t paddr)
 
 #include <fmt.h>
 
-// #define FORCE_RISCV_SPIKE_MEM
-
 uint64_t simlib_t::sparse_read(reg_t paddr, size_t len)
 {
   LOG_PRINT_NOTICE("[simlib_t::%s] paddr=%lx, len=%ld\n", __func__, paddr, len);
@@ -954,7 +953,7 @@ uint64_t simlib_t::sparse_read(reg_t paddr, size_t len)
   auto host_addr = addr_to_mem(paddr);
   assert(len <= 8);
 
-  // to value from be
+  // to value from big endian
   for (size_t i = 0; i < len; i++)
     pdata[i] = host_addr[len-i-1];
   LOG_PRINT_NOTICE("[simlib_t::%s] done %lx\n", __func__, rdata);
@@ -1063,7 +1062,8 @@ void simlib_t::sparse_initialize_pa(reg_t paddr, const uint8_t* data, const uint
   host_addr = addr_to_mem(paddr);
   if (nullptr == host_addr) {
     LOG_PRINT_ERROR("[simlib_t::%s:%d] can not find host of paddr=%lx\n", __func__, __LINE__, paddr);
-    assert(false);
+    // assert(false);
+    return;
   }
 
   memcpy(host_addr, data, nBytes);
@@ -1094,7 +1094,8 @@ void simlib_t::sparse_initialize_pa(reg_t paddr, reg_t value, size_t numBytes, F
   host_addr = addr_to_mem(paddr);
   if (nullptr == host_addr) {
     LOG_PRINT_INFO("[simlib_t::%s:%d] can not find host of paddr=%lx\n", __func__, __LINE__, paddr);
-    assert(false);
+    // assert(false);
+    return;
   }
 
   memcpy(host_addr, &value, numBytes);
@@ -1125,7 +1126,8 @@ void simlib_t::sparse_initialize_pa(reg_t paddr, reg_t value, size_t numBytes)
   host_addr = addr_to_mem(paddr);
   if (nullptr == host_addr) {
     LOG_PRINT_INFO("[simlib_t::%s:%d] can not find host of paddr=%lx\n", __func__, __LINE__, paddr);
-    assert(false);
+    // assert(false);
+    return;
   }
 
   memcpy(host_addr, &value, numBytes);

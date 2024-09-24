@@ -210,6 +210,8 @@ private:
 #ifdef FORCE_RISCV_ENABLE
 extern const char* xpr_arch_name[];
 extern const char* fpr_arch_name[];
+extern const char* xpr_name[];
+extern const char* fpr_name[];
 extern const char* vr_name[];
 
 extern "C" {

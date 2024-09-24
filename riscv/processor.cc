@@ -1207,7 +1207,6 @@ reg_t processor_t::get_csr(int which, insn_t insn, bool write, bool peek)
 
     // notify reading CSRs
     update_generator_register(this->id, text_name.c_str(), update_val, 0xffffffffffffffffull, "read");
-
     return res;
 #endif
   }
