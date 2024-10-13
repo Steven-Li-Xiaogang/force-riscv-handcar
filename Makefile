@@ -38,9 +38,7 @@ all:
 	@$(MAKE) install
 
 # enable spike memory model for handcar cosim
-ifeq ($(SPIKE_MEM),TRUE)
 CFLAGS += -DFORCE_RISCV_SPIKE_MEM
-endif
 
 ifeq (0, $(words $(findstring $(MAKECMDGOALS), $(NODEPS))))
 -include $(ALL_DEPS) $(ALL_C_DEPS)

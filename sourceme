@@ -1,0 +1,4 @@
+export FORCE_CC=/usr/bin/g++
+export FORCE_PYTHON_VER=3.6
+export FORCE_PYTHON_LIB=/usr/lib/x86_64-linux-gnu/
+export FORCE_PYTHON_INC=/usr/include/python3.6m

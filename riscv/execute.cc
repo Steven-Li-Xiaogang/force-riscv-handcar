@@ -255,11 +255,11 @@ void processor_t::step(size_t n)
     {
       take_pending_interrupt();
 
-#ifndef FORCE_RISCV_ENABLE
+// #ifndef FORCE_RISCV_ENABLE
       if (unlikely(slow_path()))
-#else
-      if (true)
-#endif
+// #else
+//       if (true)
+// #endif
       {
         // Main simulation loop, slow path.
         while (instret < n)
@@ -294,10 +294,10 @@ void processor_t::step(size_t n)
           insn_fetch_t fetch = mmu->load_insn(pc);
           LOG_PRINT_ERROR("[processor_t::%s] insn=%lx, pc=%lx\n", __func__, fetch.insn.bits(), pc);
           execute_insn_prehook(fetch.insn);
-#ifndef FORCE_RISCV_ENABLE
+// #ifndef FORCE_RISCV_ENABLE
           if (debug && !state.serialized)
             disasm(fetch.insn);
-#endif
+// #endif
           pc = execute_insn_logged(this, pc, fetch);
           // LOG_PRINT_ERROR("[processor_t::%s] slow done pc=%lx\n", __func__, pc);
           LOG_PRINT_ERROR("[processor_t::%s] done\n", __func__);
